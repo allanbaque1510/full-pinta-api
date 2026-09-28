@@ -15,7 +15,7 @@ class ReporteResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'tipo' => $this->tipo,
+            'objeto_type' => $this->objeto_type,
             'objeto_id' => $this->objeto_id,
             'reportante_id' => $this->reportante_id,
             'motivo' => $this->motivo,

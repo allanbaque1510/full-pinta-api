@@ -102,7 +102,7 @@ Terminales: `completada`, `cancelada_cliente`, `cancelada_local`, `no_show`, `ex
 - Solo `completada` habilita reseña
 - Solo `completada` cuenta para ranking del local y liquidación de comisiones
 - `reagendada` **no** penaliza al cliente
-- Cada transición escribe una fila en `cita_evento`
+- Cada transición escribe una fila en `cita_bitacora`
 - Cada transición **cancela y reprograma** las notificaciones pendientes de esa cita
 
 Las transiciones se implementan en `Application/`, una clase por transición, y cada una publica su evento de dominio.

@@ -4,6 +4,7 @@ namespace Tests\Feature\Scheduling;
 
 use App\Models\Cita;
 use App\Models\ClientePerfil;
+use App\Models\Habilidad;
 use App\Models\Local;
 use App\Models\Profesional;
 use App\Models\ServicioLocal;
@@ -23,6 +24,7 @@ class ReagendarCitaTest extends TestCase
         $local = Local::factory()->create();
         $servicio = ServicioLocal::factory()->create(['local_id' => $local->id, 'duracion_min' => 30, 'buffer_min' => 0]);
         $profesional = Profesional::factory()->create();
+        Habilidad::factory()->create(['profesional_id' => $profesional->id, 'servicio_local_id' => $servicio->id]);
         $citaVieja = Cita::factory()->create([
             'local_id' => $local->id, 'cliente_id' => $cliente->id, 'profesional_id' => $profesional->id,
         ]);
@@ -41,7 +43,7 @@ class ReagendarCitaTest extends TestCase
 
         $this->assertDatabaseHas('cita', ['id' => $citaVieja->id, 'estado' => 'reagendada']);
         $this->assertDatabaseHas('cliente_perfil', ['usuario_id' => $cliente->id, 'cancelaciones_tardias' => 0]);
-        $this->assertDatabaseHas('cita_evento', [
+        $this->assertDatabaseHas('cita_bitacora', [
             'cita_id' => $citaVieja->id, 'estado_nuevo' => 'reagendada',
         ]);
     }

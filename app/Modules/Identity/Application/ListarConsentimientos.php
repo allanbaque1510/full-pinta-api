@@ -16,9 +16,10 @@ final readonly class ListarConsentimientos
     public function __invoke(Usuario $usuario): Collection
     {
         return Consentimiento::where('usuario_id', $usuario->id)
+            ->with('finalidadConsentimiento', 'documentoLegal')
             ->orderByDesc('otorgado_at')
             ->get()
-            ->unique('finalidad')
+            ->unique('finalidad_id')
             ->values();
     }
 }

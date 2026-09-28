@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 /**
  * Local (`local`).
@@ -49,9 +50,9 @@ class Local extends Model
         return $this->hasMany(HorarioLocal::class, 'local_id');
     }
 
-    public function fotos(): HasMany
+    public function imagenes(): MorphMany
     {
-        return $this->hasMany(LocalFoto::class, 'local_id');
+        return $this->morphMany(Imagen::class, 'objeto');
     }
 
     public function miembros(): HasMany
@@ -130,8 +131,23 @@ class Local extends Model
             ->withPivot('detalle');
     }
 
+    public function metodosPago(): BelongsToMany
+    {
+        return $this->belongsToMany(MetodoPago::class, 'local_metodo_pago', 'local_id', 'metodo_pago_id');
+    }
+
     public function estaOperativo(): bool
     {
         return $this->estado === 'activo';
+    }
+
+    /**
+     * "Verificado" en público exige las dos cosas: el local (esta columna) Y
+     * el RUC del negocio dueño (§4.4, revisión de base de datos, 2026-09-28)
+     * — antes solo se miraba `local.verificado`. Requiere `negocio` cargada.
+     */
+    public function estaVerificado(): bool
+    {
+        return $this->verificado && $this->negocio->ruc_verificado;
     }
 }

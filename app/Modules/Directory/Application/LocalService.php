@@ -23,7 +23,10 @@ final readonly class LocalService
 
     public function listarPorNegocio(Negocio $negocio): Collection
     {
-        return $negocio->locales;
+        // `$negocio` ya está en memoria — se asigna directo a cada local en
+        // vez de un `->with('negocio')` que repetiría la misma fila que ya
+        // se tiene (necesaria para `Local::estaVerificado()`).
+        return $negocio->locales->each(fn (Local $local) => $local->setRelation('negocio', $negocio));
     }
 
     /**
@@ -43,7 +46,7 @@ final readonly class LocalService
      * reconstruir el árbol de relaciones en cada lectura.
      *
      * `->resolve()` NO alcanza: solo resuelve el array del nivel superior —
-     * `amenidades`/`fotos`/`horarios`/`servicios` quedan como objetos
+     * `amenidades`/`imagenes`/`horarios`/`servicios`/`productos` quedan como objetos
      * `AnonymousResourceCollection` sin resolver (esos se resuelven recién
      * cuando `json_encode` los recorre al armar la respuesta HTTP, no antes),
      * y son objetos igual de rechazados por Redis. El viaje de ida y vuelta
@@ -70,10 +73,13 @@ final readonly class LocalService
             $this->clavePerfilPublico($local->id),
             self::TTL_CACHE_PERFIL_SEGUNDOS,
             fn () => json_decode(json_encode(LocalPublicoResource::make($local->load([
+                'negocio',
                 'servicios' => fn ($q) => $q->where('activo', true),
                 'servicios.catalogoServicio',
+                'productos' => fn ($q) => $q->where('activo', true),
+                'productos.foto',
                 'amenidades',
-                'fotos',
+                'imagenes.tipo',
                 'horarios',
                 'resenas' => fn ($q) => $q->publicadas(),
             ]))), true),
@@ -87,8 +93,8 @@ final readonly class LocalService
 
     /**
      * Da de alta un local bajo un negocio. Nace en 'borrador' (§4.4) a
-     * propósito: el dueño todavía tiene que cargar servicios, horarios y
-     * fotos antes de que sea buscable — `activar()` es un paso aparte,
+     * propósito: el dueño todavía tiene que cargar servicios, horarios e
+     * imágenes antes de que sea buscable — `activar()` es un paso aparte,
      * deliberado.
      *
      * @param  array{
@@ -99,7 +105,7 @@ final readonly class LocalService
      */
     public function crear(Negocio $negocio, array $datos): Local
     {
-        return $negocio->locales()->create([
+        $local = $negocio->locales()->create([
             // `lead_time_min`/`horizonte_dias`/`politica_cancelacion_horas`
             // son opcionales en el request pero tienen DEFAULT en Postgres
             // (60/30/2) — ese default vive en la base, no en PHP. Si se deja
@@ -115,6 +121,8 @@ final readonly class LocalService
             'estado' => 'borrador',
             'verificado' => false,
         ]);
+
+        return $local->setRelation('negocio', $negocio);
     }
 
     /**
@@ -138,7 +146,7 @@ final readonly class LocalService
 
         Cache::forget($this->clavePerfilPublico($local->id));
 
-        return $local;
+        return $local->loadMissing('negocio');
     }
 
     /**
@@ -161,7 +169,7 @@ final readonly class LocalService
 
         Cache::forget($this->clavePerfilPublico($local->id));
 
-        return $local;
+        return $local->loadMissing('negocio');
     }
 
     /**
@@ -179,7 +187,20 @@ final readonly class LocalService
 
         Cache::forget($this->clavePerfilPublico($local->id));
 
-        return $local;
+        return $local->loadMissing('negocio');
+    }
+
+    /**
+     * Revisión de base de datos 2026-09-28: expuesto como público para que
+     * Catalog (`ServicioLocalModificado`) y Reviews (`ResenaCreada`/
+     * `ResenaRespondida`) también puedan invalidar este caché al modificar
+     * algo que el perfil público incluye — antes solo se invalidaba desde
+     * los tres métodos de este mismo archivo, dejando el resto del perfil
+     * desactualizado hasta que expirara el TTL de 1 hora.
+     */
+    public function invalidarPerfilPublico(string $localId): void
+    {
+        Cache::forget($this->clavePerfilPublico($localId));
     }
 
     private function clavePerfilPublico(string $localId): string

@@ -53,7 +53,7 @@ class AuthController extends Controller
             );
 
             return [
-                'usuario' => UsuarioResource::make($usuario),
+                'usuario' => UsuarioResource::make($usuario->loadMissing('fotoPerfil')),
                 'token' => $token->plainTextToken,
             ];
         }, 201);
@@ -65,7 +65,7 @@ class AuthController extends Controller
             [$usuario, $token] = $iniciar($request->validated('id_token'), $request->validated('telefono'));
 
             return [
-                'usuario' => UsuarioResource::make($usuario),
+                'usuario' => UsuarioResource::make($usuario->loadMissing('fotoPerfil')),
                 'token' => $token->plainTextToken,
             ];
         }, 201);
@@ -77,7 +77,7 @@ class AuthController extends Controller
             [$usuario, $token] = $registrar($request->validated());
 
             return [
-                'usuario' => UsuarioResource::make($usuario),
+                'usuario' => UsuarioResource::make($usuario->loadMissing('fotoPerfil')),
                 'token' => $token->plainTextToken,
             ];
         }, 201);
@@ -89,7 +89,7 @@ class AuthController extends Controller
             [$usuario, $token] = $iniciar($request->validated('email'), $request->validated('password'));
 
             return [
-                'usuario' => UsuarioResource::make($usuario),
+                'usuario' => UsuarioResource::make($usuario->loadMissing('fotoPerfil')),
                 'token' => $token->plainTextToken,
             ];
         });

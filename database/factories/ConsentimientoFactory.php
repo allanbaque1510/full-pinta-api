@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Models\Consentimiento;
+use App\Models\FinalidadConsentimiento;
 use App\Models\Usuario;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -17,8 +18,7 @@ class ConsentimientoFactory extends Factory
     {
         return [
             'usuario_id' => Usuario::factory(),
-            'finalidad' => 'operacion_servicio',
-            'documento_version' => '2026-01',
+            'finalidad_id' => FinalidadConsentimiento::factory(),
             'otorgado' => true,
             'origen' => 'app',
             'ip' => fake()->ipv4(),

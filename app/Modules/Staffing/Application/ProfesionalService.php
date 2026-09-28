@@ -8,6 +8,7 @@ use App\Models\Local;
 use App\Models\Profesional;
 use App\Models\Usuario;
 use App\Modules\Staffing\Http\Resources\ProfesionalPublicoResource;
+use App\Support\ImagenService;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
@@ -24,10 +25,13 @@ use Illuminate\Support\Facades\DB;
  */
 final readonly class ProfesionalService
 {
+    public function __construct(private ImagenService $imagenes) {}
+
     /** Profesionales con asignación vigente en este local — el roster que ve la agenda. */
     public function listarPorLocal(Local $local): Collection
     {
         return Profesional::query()
+            ->with('fotoPerfil')
             ->whereHas('asignaciones', fn ($q) => $q->where('local_id', $local->id)->vigente())
             ->get();
     }
@@ -35,20 +39,26 @@ final readonly class ProfesionalService
     /**
      * @param  array{
      *     nombre: string, alias?: ?string, bio?: ?string, foto_url?: ?string,
-     *     independiente?: bool, perfil_publico?: bool, traslado_min?: int,
+     *     perfil_publico?: bool, traslado_min?: int,
      * }  $datosProfesional
      * @param  array{rol: string, modalidad: string, comision_pct: float, desde?: string}  $datosAsignacion
      */
     public function crearConAsignacion(Local $local, array $datosProfesional, array $datosAsignacion): Profesional
     {
-        return DB::transaction(function () use ($local, $datosProfesional, $datosAsignacion) {
+        $fotoUrl = $datosProfesional['foto_url'] ?? null;
+        unset($datosProfesional['foto_url']);
+
+        return DB::transaction(function () use ($local, $datosProfesional, $datosAsignacion, $fotoUrl) {
             $profesional = Profesional::create([
                 // Con DEFAULT en Postgres, no en PHP — ver skill `migracion`.
-                'independiente' => false,
                 'perfil_publico' => true,
                 'traslado_min' => 30,
                 ...$datosProfesional,
             ]);
+
+            if ($fotoUrl !== null) {
+                $this->imagenes->establecerFotoPerfil($profesional, 'profesional', $fotoUrl);
+            }
 
             Asignacion::create([
                 'local_id' => $local->id,
@@ -59,15 +69,20 @@ final readonly class ProfesionalService
                 'desde' => $datosAsignacion['desde'] ?? now()->toDateString(),
             ]);
 
-            return $profesional;
+            return $profesional->load('fotoPerfil');
         });
     }
 
     public function actualizar(Profesional $profesional, array $datos): Profesional
     {
+        if (array_key_exists('foto_url', $datos)) {
+            $this->imagenes->establecerFotoPerfil($profesional, 'profesional', $datos['foto_url']);
+            unset($datos['foto_url']);
+        }
+
         $profesional->update($datos);
 
-        return $profesional;
+        return $profesional->load('fotoPerfil');
     }
 
     /**
@@ -95,7 +110,8 @@ final readonly class ProfesionalService
         }
 
         $profesional->load([
-            'fotos',
+            'fotoPerfil',
+            'imagenes.tipo',
             'resenas' => fn ($q) => $q->publicadas(),
             'habilidades.servicioLocal.catalogoServicio',
         ]);

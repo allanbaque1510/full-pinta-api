@@ -3,12 +3,12 @@
 namespace App\Modules\Scheduling\Application\Transiciones\Concerns;
 
 use App\Models\Cita;
-use App\Models\CitaEvento;
+use App\Models\CitaBitacora;
 use App\Models\Usuario;
 use App\Support\Auth\ContextoAcceso;
 
 /**
- * Cada transición de estado escribe una fila en `cita_evento` (§6) — la
+ * Cada transición de estado escribe una fila en `cita_bitacora` (§6) — la
  * auditoría inmutable que responde "¿de quién fue esta cita y qué le pasó"
  * cuando hay un reclamo de comisión.
  */
@@ -24,7 +24,7 @@ trait RegistraEventoCita
         ?Usuario $actor,
         array $payload = [],
     ): void {
-        CitaEvento::create([
+        CitaBitacora::create([
             'cita_id' => $cita->id,
             'estado_anterior' => $estadoAnterior,
             'estado_nuevo' => $estadoNuevo,

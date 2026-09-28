@@ -11,8 +11,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 /**
  * Amenidad (`amenidad`).
  *
- * "Acepta mascotas en sala" es una amenidad. "Baña perros" es un servicio de la
- * vertical mascotas. Confundirlas lleva clientes con su perro a un local que solo
+ * "Acepta mascotas en sala" es una amenidad. "Baña perros" es un servicio del
+ * rubro mascotas. Confundirlas lleva clientes con su perro a un local que solo
  * lo deja entrar (§4.4).
  */
 class Amenidad extends Model

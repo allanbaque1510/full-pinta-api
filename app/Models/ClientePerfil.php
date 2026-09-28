@@ -27,7 +27,6 @@ class ClientePerfil extends Model
     protected function casts(): array
     {
         return [
-            'fecha_nacimiento' => 'date',
             'no_shows' => 'integer',
             'cancelaciones_tardias' => 'integer',
             'requiere_confirmacion' => 'boolean',

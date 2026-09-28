@@ -23,6 +23,8 @@ class Negocio extends Model
     {
         return [
             'plan_vigente_hasta' => 'date',
+            'ruc_verificado' => 'boolean',
+            'ruc_verificado_at' => 'immutable_datetime',
         ];
     }
 
@@ -49,6 +51,16 @@ class Negocio extends Model
     public function plan(): BelongsTo
     {
         return $this->belongsTo(Plan::class, 'plan_id');
+    }
+
+    public function fotoPerfil(): BelongsTo
+    {
+        return $this->belongsTo(Imagen::class, 'foto_perfil_id');
+    }
+
+    public function portadaImagen(): BelongsTo
+    {
+        return $this->belongsTo(Imagen::class, 'portada_imagen_id');
     }
 
     /** Requiere `plan` cargada (`->with('plan')`) — sin eso, lazy loading roto en desarrollo. */

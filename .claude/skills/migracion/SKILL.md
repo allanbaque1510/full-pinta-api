@@ -19,7 +19,7 @@ Laravel ordena **por nombre de archivo**, globalmente. El prefijo es lo que gara
 000300  Catalog         servicio_categoria, catalogo_servicio, ...
 000400  Staffing        profesional, asignacion, turno, recurso, ...
 000450  favorito        (necesita local Y profesional)
-000500  Scheduling      cita, cita_item, cita_evento, ...
+000500  Scheduling      cita, cita_item, cita_bitacora, ...
 000600  Reviews
 000700  Notifications
 000800  Billing
@@ -73,11 +73,11 @@ Tratar `estado='activo'` como si fuera un booleano pierde esa distinción — y 
 
 ## Un valor repetido en varias filas o varias tablas es tabla de parámetros, no `varchar` suelto
 
-Si un dato se repite como texto en más de una fila (una categoría, un tipo, una vertical) y encima tiene atributos propios que describirlo bien exige (`nombre`, `icono`, `orden`), **es una tabla `id, codigo, nombre, activo`, referenciada por `id`** — no un `varchar` + `CHECK` repetido en cada tabla que lo necesita. Ejemplos ya en el esquema: `servicio_categoria`, `amenidad_categoria`, `vertical`.
+Si un dato se repite como texto en más de una fila (una categoría, un tipo, un rubro) y encima tiene atributos propios que describirlo bien exige (`nombre`, `icono`, `orden`), **es una tabla `id, codigo, nombre, activo`, referenciada por `id`** — no un `varchar` + `CHECK` repetido en cada tabla que lo necesita. Ejemplos ya en el esquema: `servicio_categoria`, `amenidad_categoria`, `rubro`.
 
-Señal inequívoca de que ya cruzó la línea: el mismo `varchar` + `CHECK` con la misma lista de valores aparece en **más de una tabla**. Pasó con `vertical` (repetido en `servicio_categoria`, `catalogo_servicio` y `solicitud_catalogo` antes del 2026-09-15) y con `amenidad.categoria`. La corrección: tabla de parámetros con `id` uuid, y cada tabla que antes tenía el `varchar` pasa a tener `xxx_id` con FK.
+Señal inequívoca de que ya cruzó la línea: el mismo `varchar` + `CHECK` con la misma lista de valores aparece en **más de una tabla**. Pasó con `rubro` (repetido en `servicio_categoria`, `catalogo_servicio` y `solicitud_catalogo` antes del 2026-09-15; se llamó `vertical` hasta el 2026-09-28) y con `amenidad.categoria`. La corrección: tabla de parámetros con `id` uuid, y cada tabla que antes tenía el `varchar` pasa a tener `xxx_id` con FK.
 
-Efecto colateral importante al normalizar: si una tabla tenía el dato duplicado "para garantizar consistencia" (p. ej. `catalogo_servicio.vertical` + `categoria_codigo`, con FK compuesta para que ambos coincidieran), **no dupliques la columna con la nueva FK simple** — derívala de la relación (`categoria_id -> servicio_categoria.vertical_id`) y accede vía relación de Eloquent (`$this->categoria->vertical`), con el `->with(...)` correspondiente para no romper `preventLazyLoading()`. Guardar la misma cosa en dos columnas es justamente el problema que se está corrigiendo.
+Efecto colateral importante al normalizar: si una tabla tenía el dato duplicado "para garantizar consistencia" (p. ej. `catalogo_servicio.rubro` + `categoria_codigo`, con FK compuesta para que ambos coincidieran), **no dupliques la columna con la nueva FK simple** — derívala de la relación (`categoria_id -> servicio_categoria.rubro_id`) y accede vía relación de Eloquent (`$this->categoria->rubro`), con el `->with(...)` correspondiente para no romper `preventLazyLoading()`. Guardar la misma cosa en dos columnas es justamente el problema que se está corrigiendo.
 
 Un enum que **no** se repite entre tablas y no tiene atributos propios (p. ej. `tipo_recurso`, `mascota_tamano`) se queda como `varchar` + `CHECK` normal — no todo enum merece tabla.
 
@@ -187,6 +187,7 @@ CREATE INDEX cita_local_inicio       ON cita (local_id, inicio);
 CREATE INDEX cita_profesional_inicio ON cita (profesional_id, inicio);
 CREATE INDEX cita_cliente_inicio     ON cita (cliente_id, inicio DESC);
 CREATE INDEX cita_holds_vencidos     ON cita (expira_at) WHERE estado = 'reservada';
+CREATE INDEX cita_cliente_local_estado ON cita (cliente_id, local_id, estado);
 CREATE INDEX turno_local_dia         ON turno (local_id, dia_semana);
 CREATE INDEX excepcion_prof_rango    ON excepcion (profesional_id, fecha_inicio, fecha_fin);
 CREATE INDEX habilidad_servicio      ON habilidad (servicio_local_id);

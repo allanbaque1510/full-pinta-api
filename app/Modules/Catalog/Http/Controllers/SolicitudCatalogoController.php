@@ -23,7 +23,7 @@ class SolicitudCatalogoController extends Controller
     public function store(CrearSolicitudCatalogoRequest $request, Local $local, SolicitudCatalogoService $solicitudes): JsonResponse
     {
         return $this->ejecutar(
-            fn () => SolicitudCatalogoResource::make($solicitudes->crear($local, $request->validated())),
+            fn () => SolicitudCatalogoResource::make($solicitudes->crear($local, $request->user(), $request->validated())),
             201,
         );
     }

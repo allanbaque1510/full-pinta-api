@@ -46,24 +46,31 @@ class Idempotencia
         }
 
         $usuarioId = $request->user()?->getAuthIdentifier();
+        $payloadHash = $this->payloadHash($request);
 
         // Reclamar la clave. Si ya existe, otra petición igual llegó antes.
+        // El insert va en su propia transacción para que, si Postgres la aborta
+        // por violación de unicidad, el ROLLBACK TO SAVEPOINT de Laravel deje la
+        // conexión utilizable para el SELECT de `reproducir()` que sigue.
         try {
-            DB::table('idempotencia')->insert([
-                'id' => (string) Str::uuid(),
-                'clave' => $clave,
-                'usuario_id' => $usuarioId,
-                'endpoint' => $this->endpoint($request),
-                'status' => null,
-                'respuesta' => null,
-                'created_at' => now(),
-            ]);
+            DB::transaction(function () use ($clave, $usuarioId, $payloadHash, $request) {
+                DB::table('idempotencia')->insert([
+                    'id' => (string) Str::uuid(),
+                    'clave' => $clave,
+                    'usuario_id' => $usuarioId,
+                    'endpoint' => $this->endpoint($request),
+                    'payload_hash' => $payloadHash,
+                    'status' => null,
+                    'respuesta' => null,
+                    'created_at' => now(),
+                ]);
+            });
         } catch (QueryException $e) {
             if ($e->getCode() !== self::UNIQUE_VIOLATION) {
                 throw $e;
             }
 
-            return $this->reproducir($clave, $usuarioId, $request);
+            return $this->reproducir($clave, $usuarioId, $payloadHash, $request);
         }
 
         try {
@@ -85,7 +92,7 @@ class Idempotencia
     /**
      * Devuelve la respuesta ya guardada para una clave repetida.
      */
-    private function reproducir(string $clave, ?string $usuarioId, Request $request): Response
+    private function reproducir(string $clave, ?string $usuarioId, string $payloadHash, Request $request): Response
     {
         $fila = DB::table('idempotencia')->where('clave', $clave)->first();
 
@@ -101,6 +108,14 @@ class Idempotencia
         if ($fila->usuario_id !== $usuarioId || $fila->endpoint !== $this->endpoint($request)) {
             return $this->error(422, 'idempotency_key_reutilizada',
                 'Esa clave ya se usó para otra operación.');
+        }
+
+        // La misma clave, del mismo usuario, en el mismo endpoint, pero con un
+        // cuerpo distinto — sin esto, se le devolvería la respuesta vieja sin
+        // avisar que el contenido cambió (revisión de base de datos, 2026-09-28).
+        if ($fila->payload_hash !== $payloadHash) {
+            return $this->error(422, 'idempotency_key_conflicto_payload',
+                'Esa clave ya se usó con un contenido distinto.');
         }
 
         if ($fila->status === null) {
@@ -139,6 +154,11 @@ class Idempotencia
     private function endpoint(Request $request): string
     {
         return substr($request->method().' '.($request->route()?->uri() ?? $request->path()), 0, 120);
+    }
+
+    private function payloadHash(Request $request): string
+    {
+        return hash('sha256', $request->getContent());
     }
 
     private function error(int $status, string $codigo, string $mensaje): JsonResponse

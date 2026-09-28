@@ -3,10 +3,16 @@
 namespace Tests\Feature\Directory;
 
 use App\Models\Amenidad;
+use App\Models\CatalogoServicio;
+use App\Models\Cita;
 use App\Models\Favorito;
 use App\Models\Local;
+use App\Models\Profesional;
 use App\Models\ServicioLocal;
 use App\Models\Usuario;
+use App\Modules\Catalog\Application\ProductoService;
+use App\Modules\Catalog\Application\ServicioLocalService;
+use App\Modules\Reviews\Application\ResenaService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Tests\Concerns\CreaNegocioDePrueba;
@@ -111,5 +117,87 @@ class PerfilPublicoLocalTest extends TestCase
 
         $this->assertIsArray($cacheado);
         $this->assertArrayNotHasKey('es_favorito', $cacheado);
+    }
+
+    /**
+     * Revisión de base de datos 2026-09-28: antes, `ServicioLocalService`
+     * (Catalog) nunca invalidaba este caché — el perfil público quedaba
+     * mostrando la lista de servicios vieja hasta que expirara el TTL de 1h.
+     */
+    public function test_el_perfil_publico_se_invalida_al_agregar_un_servicio_desde_catalog(): void
+    {
+        $local = Local::factory()->create();
+        $catalogoServicio = CatalogoServicio::factory()->create();
+
+        $this->getJson("/api/v1/locales/{$local->id}/perfil-publico")->assertJsonCount(0, 'servicios');
+        $this->assertNotNull(Cache::get("local:perfil-publico:{$local->id}"));
+
+        app(ServicioLocalService::class)->crear($local, [
+            'catalogo_servicio_id' => $catalogoServicio->id,
+            'precio' => 10,
+            'duracion_min' => 30,
+        ]);
+
+        $this->assertNull(Cache::get("local:perfil-publico:{$local->id}"));
+        $this->getJson("/api/v1/locales/{$local->id}/perfil-publico")->assertJsonCount(1, 'servicios');
+    }
+
+    /**
+     * Revisión de base de datos 2026-09-28: los productos activos también
+     * aparecen en el perfil público, y su alta/edición/baja debe invalidar
+     * el mismo caché — mismo patrón ya usado para servicios/amenidades/imágenes.
+     */
+    public function test_el_perfil_publico_se_invalida_al_agregar_un_producto(): void
+    {
+        $local = Local::factory()->create();
+
+        $this->getJson("/api/v1/locales/{$local->id}/perfil-publico")->assertJsonCount(0, 'productos');
+        $this->assertNotNull(Cache::get("local:perfil-publico:{$local->id}"));
+
+        app(ProductoService::class)->crear($local, ['nombre' => 'Pomada', 'precio' => 10]);
+
+        $this->assertNull(Cache::get("local:perfil-publico:{$local->id}"));
+        $this->getJson("/api/v1/locales/{$local->id}/perfil-publico")->assertJsonCount(1, 'productos');
+    }
+
+    /**
+     * Mismo hallazgo, del lado de Reviews: `ResenaService::crear()` tampoco
+     * invalidaba este caché.
+     */
+    public function test_el_perfil_publico_se_invalida_al_crear_una_resena_desde_reviews(): void
+    {
+        $local = Local::factory()->create();
+        $profesional = Profesional::factory()->create();
+        $cliente = Usuario::factory()->create();
+        $cita = Cita::factory()->completada()->create([
+            'local_id' => $local->id, 'profesional_id' => $profesional->id, 'cliente_id' => $cliente->id,
+        ]);
+
+        $this->getJson("/api/v1/locales/{$local->id}/perfil-publico")->assertJsonPath('resenas.total', 0);
+        $this->assertNotNull(Cache::get("local:perfil-publico:{$local->id}"));
+
+        app(ResenaService::class)->crear($cita, ['puntaje_local' => 5]);
+
+        $this->assertNull(Cache::get("local:perfil-publico:{$local->id}"));
+        $this->getJson("/api/v1/locales/{$local->id}/perfil-publico")->assertJsonPath('resenas.total', 1);
+    }
+
+    /**
+     * Revisión de base de datos 2026-09-28: un local con `verificado: true`
+     * no debe mostrarse verificado al público si el negocio dueño no tiene
+     * el RUC verificado — antes solo se miraba `local.verificado`.
+     */
+    public function test_verificado_exige_tambien_el_ruc_verificado_del_negocio(): void
+    {
+        $local = Local::factory()->create(['verificado' => true]);
+
+        $this->getJson("/api/v1/locales/{$local->id}/perfil-publico")
+            ->assertJsonPath('verificado', false);
+
+        $local->negocio->update(['ruc_verificado' => true]);
+        Cache::forget("local:perfil-publico:{$local->id}");
+
+        $this->getJson("/api/v1/locales/{$local->id}/perfil-publico")
+            ->assertJsonPath('verificado', true);
     }
 }

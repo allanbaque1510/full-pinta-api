@@ -29,4 +29,14 @@ class CobroController extends Controller
             return CobroResource::make($cobros->marcarPagado($cobro));
         });
     }
+
+    public function marcarReembolsado(Cobro $cobro, CobroService $cobros): JsonResponse
+    {
+        return $this->ejecutar(function () use ($cobro, $cobros) {
+            $cobro->loadMissing('suscripcion.negocio');
+            $this->authorize('gestionarSuscripcion', $cobro->suscripcion->negocio);
+
+            return CobroResource::make($cobros->marcarReembolsado($cobro));
+        });
+    }
 }

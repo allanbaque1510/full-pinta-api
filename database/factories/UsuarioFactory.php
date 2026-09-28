@@ -22,6 +22,8 @@ class UsuarioFactory extends Factory
             'telefono_verificado' => true,
             'email' => fake()->unique()->safeEmail(),
             'nombre' => fake()->name(),
+            'genero' => fake()->randomElement(['m', 'f', 'otro', 'no_decir']),
+            'fecha_nacimiento' => fake()->dateTimeBetween('-60 years', '-18 years'),
             'password_hash' => bcrypt('secreta'),
         ];
     }

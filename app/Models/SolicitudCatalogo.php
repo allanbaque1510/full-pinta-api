@@ -25,9 +25,14 @@ class SolicitudCatalogo extends Model
         return $this->belongsTo(Local::class, 'local_id');
     }
 
-    public function vertical(): BelongsTo
+    public function solicitante(): BelongsTo
     {
-        return $this->belongsTo(Vertical::class, 'vertical_id');
+        return $this->belongsTo(Usuario::class, 'solicitante_id');
+    }
+
+    public function rubro(): BelongsTo
+    {
+        return $this->belongsTo(Rubro::class, 'rubro_id');
     }
 
     public function catalogoServicio(): BelongsTo

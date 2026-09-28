@@ -32,15 +32,6 @@ class ClienteLocal extends Model
 
     public $timestamps = false;
 
-    protected function casts(): array
-    {
-        return [
-            'primera_cita_at' => 'immutable_datetime',
-            'ultima_cita_at' => 'immutable_datetime',
-            'total_citas' => 'integer',
-        ];
-    }
-
     public function usuario(): BelongsTo
     {
         return $this->belongsTo(Usuario::class, 'usuario_id');

@@ -33,7 +33,7 @@ class LocalController extends Controller
         return $this->ejecutar(function () use ($local) {
             $this->authorize('ver', $local);
 
-            return LocalResource::make($local);
+            return LocalResource::make($local->loadMissing('negocio'));
         });
     }
 

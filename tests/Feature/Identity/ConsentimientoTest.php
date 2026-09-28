@@ -2,7 +2,9 @@
 
 namespace Tests\Feature\Identity;
 
+use App\Models\FinalidadConsentimiento;
 use App\Models\Usuario;
+use Database\Seeders\FinalidadConsentimientoSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -24,6 +26,7 @@ class ConsentimientoTest extends TestCase
 
     public function test_otorgar_marketing_crea_un_consentimiento_vigente(): void
     {
+        $this->seed(FinalidadConsentimientoSeeder::class);
         [, $token] = $this->autenticado();
 
         $this->withHeader('Authorization', "Bearer {$token}")
@@ -33,11 +36,15 @@ class ConsentimientoTest extends TestCase
             ->assertJsonPath('otorgado', true)
             ->assertJsonPath('vigente', true);
 
-        $this->assertDatabaseHas('consentimiento', ['finalidad' => 'marketing', 'otorgado' => true]);
+        $this->assertDatabaseHas('consentimiento', [
+            'finalidad_id' => FinalidadConsentimiento::where('codigo', 'marketing')->value('id'),
+            'otorgado' => true,
+        ]);
     }
 
     public function test_revocar_marketing_actualiza_la_fila_en_vez_de_crear_otra(): void
     {
+        $this->seed(FinalidadConsentimientoSeeder::class);
         [$usuario, $token] = $this->autenticado();
 
         $this->withHeader('Authorization', "Bearer {$token}")
@@ -57,6 +64,7 @@ class ConsentimientoTest extends TestCase
 
     public function test_revocar_algo_nunca_otorgado_no_falla_y_no_crea_nada(): void
     {
+        $this->seed(FinalidadConsentimientoSeeder::class);
         [, $token] = $this->autenticado();
 
         $this->withHeader('Authorization', "Bearer {$token}")
@@ -69,6 +77,7 @@ class ConsentimientoTest extends TestCase
 
     public function test_index_devuelve_el_estado_mas_reciente_por_finalidad(): void
     {
+        $this->seed(FinalidadConsentimientoSeeder::class);
         [$usuario, $token] = $this->autenticado();
 
         $this->withHeader('Authorization', "Bearer {$token}")
@@ -89,5 +98,26 @@ class ConsentimientoTest extends TestCase
         $this->withHeader('Authorization', "Bearer {$token}")
             ->postJson('/api/v1/consentimientos', ['finalidad' => 'lo_que_sea', 'otorgado' => true])
             ->assertUnprocessable();
+    }
+
+    public function test_finalidades_es_publica_y_viene_de_las_semillas(): void
+    {
+        $this->seed(FinalidadConsentimientoSeeder::class);
+
+        $this->getJson('/api/v1/finalidades-consentimiento')
+            ->assertOk()
+            ->assertJsonCount(4)
+            ->assertJsonPath('0.codigo', 'operacion_servicio')
+            ->assertJsonPath('0.documento_legal', null);
+    }
+
+    public function test_finalidades_no_incluye_inactivas(): void
+    {
+        $this->seed(FinalidadConsentimientoSeeder::class);
+        FinalidadConsentimiento::where('codigo', 'marketing')->update(['activo' => false]);
+
+        $this->getJson('/api/v1/finalidades-consentimiento')
+            ->assertOk()
+            ->assertJsonCount(3);
     }
 }

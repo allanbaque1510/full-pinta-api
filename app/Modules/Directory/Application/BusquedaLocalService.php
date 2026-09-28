@@ -27,7 +27,7 @@ final readonly class BusquedaLocalService
 
     /**
      * @param  array{
-     *     lat: float, lng: float, radio_m?: int, vertical?: string,
+     *     lat: float, lng: float, radio_m?: int, rubro?: string,
      *     catalogo_servicio_id?: string, precio_min?: float, precio_max?: float,
      *     amenidades?: array<int,string>, disponible?: bool, fecha?: string,
      *     abierto_ahora?: bool, page?: int, limit?: int,
@@ -59,7 +59,7 @@ final readonly class BusquedaLocalService
 
     /**
      * @param  array{
-     *     lat: float, lng: float, radio_m?: int, vertical?: string,
+     *     lat: float, lng: float, radio_m?: int, rubro?: string,
      *     catalogo_servicio_id?: string, precio_min?: float, precio_max?: float,
      *     amenidades?: array<int,string>, disponible?: bool, fecha?: string,
      *     abierto_ahora?: bool, page?: int, limit?: int,
@@ -71,17 +71,22 @@ final readonly class BusquedaLocalService
         $radioM = $filtros['radio_m'] ?? self::RADIO_M_DEFAULT;
 
         $query = DB::table('local as l')
+            ->join('negocio as n', 'n.id', '=', 'l.negocio_id')
             ->select([
                 'l.id', 'l.negocio_id', 'l.nombre', 'l.direccion', 'l.telefono', 'l.whatsapp',
-                'l.verificado', 'l.score_ranking',
+                'l.score_ranking',
             ])
+            // Verificado en la búsqueda pública requiere las dos cosas: el
+            // local (§4.4) y el RUC del negocio (§4.4, revisión de base de
+            // datos, 2026-09-28) — no alcanza con `l.verificado` solo.
+            ->selectRaw('(l.verificado AND n.ruc_verificado) as verificado')
             ->selectRaw('ST_Y(l.ubicacion::geometry) as lat, ST_X(l.ubicacion::geometry) as lng')
             ->selectRaw("ST_Distance(l.ubicacion, {$punto}) as distancia_m")
             ->where('l.estado', 'activo')
             ->whereRaw("ST_DWithin(l.ubicacion, {$punto}, ?)", [$radioM])
-            ->groupBy('l.id');
+            ->groupBy('l.id', 'n.ruc_verificado');
 
-        $requiereServicio = isset($filtros['vertical']) || isset($filtros['catalogo_servicio_id'])
+        $requiereServicio = isset($filtros['rubro']) || isset($filtros['catalogo_servicio_id'])
             || isset($filtros['precio_min']) || isset($filtros['precio_max']);
 
         if ($requiereServicio) {
@@ -90,11 +95,11 @@ final readonly class BusquedaLocalService
                 ->where('sl.activo', true));
             $query->join('catalogo_servicio as cs', 'cs.id', '=', 'sl.catalogo_servicio_id');
 
-            if (isset($filtros['vertical'])) {
-                $verticalId = DB::table('vertical')->where('codigo', $filtros['vertical'])->value('id');
+            if (isset($filtros['rubro'])) {
+                $rubroId = DB::table('rubro')->where('codigo', $filtros['rubro'])->value('id');
 
                 $query->join('servicio_categoria as sc', 'sc.id', '=', 'cs.categoria_id')
-                    ->where('sc.vertical_id', $verticalId);
+                    ->where('sc.rubro_id', $rubroId);
             }
 
             if (isset($filtros['catalogo_servicio_id'])) {

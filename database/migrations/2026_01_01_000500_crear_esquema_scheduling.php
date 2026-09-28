@@ -28,12 +28,17 @@ return new class extends Migration
     {
         // `cita.cliente_nuevo` se calcula contra esta tabla: si no existe la
         // fila, es cliente nuevo para ese local.
+        //
+        // Sin contadores (`primera_cita_at`/`ultima_cita_at`/`total_citas`,
+        // revisión de base de datos, 2026-09-29): eran estado guardado que se
+        // podía desincronizar de `cita`, la fuente de verdad real. La ficha del
+        // cliente los calcula al vuelo contra `cita` (ver `cita_cliente_local_estado`
+        // más abajo) — un `COUNT`/`MIN`/`MAX` puntual es más barato que la
+        // próxima vez que alguien complete una cita y se le olvide actualizar
+        // el contador.
         Schema::create('cliente_local', function (Blueprint $table) {
             $table->foreignUuid('usuario_id')->constrained('usuario')->cascadeOnDelete();
             $table->foreignUuid('local_id')->constrained('local')->cascadeOnDelete();
-            $table->timestampTz('primera_cita_at')->nullable();
-            $table->timestampTz('ultima_cita_at')->nullable();
-            $table->integer('total_citas')->default(0);
 
             // Lo que hace que el cliente vuelva, y lo que un barbero suplente
             // necesita cuando el titular no está: "fade 2 a los lados, tijera
@@ -72,7 +77,7 @@ return new class extends Migration
             // del barbero. Pelea garantizada.
             $table->decimal('propina', 10, 2)->default(0);
 
-            $table->string('metodo_pago', 16)->nullable();
+            $table->foreignUuid('metodo_pago_id')->nullable()->constrained('metodo_pago')->restrictOnDelete();
             $table->boolean('cliente_nuevo')->default(false);
 
             $table->string('para_tipo', 16)->default('titular');
@@ -103,7 +108,6 @@ return new class extends Migration
 
         Esquema::enum('cita', 'estado', self::ESTADOS);
         Esquema::enum('cita', 'canal', ['app', 'local', 'whatsapp']);
-        Esquema::enum('cita', 'metodo_pago', ['efectivo', 'transferencia', 'tarjeta', 'payphone']);
         Esquema::enum('cita', 'para_tipo', ['titular', 'otra_persona', 'mascota']);
         Esquema::check('cita', 'fin', 'fin > inicio');
         Esquema::check('cita', 'propina', 'propina >= 0');
@@ -134,6 +138,10 @@ return new class extends Migration
         DB::statement('CREATE INDEX cita_profesional_inicio ON cita (profesional_id, inicio)');
         DB::statement('CREATE INDEX cita_cliente_inicio ON cita (cliente_id, inicio DESC)');
         DB::statement("CREATE INDEX cita_holds_vencidos ON cita (expira_at) WHERE estado = 'reservada'");
+        // Ficha individual del cliente (`cliente_local`, revisión de base de
+        // datos, 2026-09-29): total_citas/primera_cita_at/ultima_cita_at se
+        // calculan en vivo con este índice en vez de guardarse como contador.
+        DB::statement('CREATE INDEX cita_cliente_local_estado ON cita (cliente_id, local_id, estado)');
 
         // Precio CONGELADO: si el local sube precios mañana, la cita agendada
         // ayer mantiene el precio pactado. Comisión CONGELADA: si el dueño le
@@ -173,12 +181,12 @@ return new class extends Migration
         // Auditoría inmutable. Cuando el barbero diga "esa cita fue mía y no me
         // la pagaron", esto es la única respuesta posible. Para comisiones no es
         // opcional: es plata entre dos personas.
-        Schema::create('cita_evento', function (Blueprint $table) {
+        Schema::create('cita_bitacora', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->foreignUuid('cita_id')->constrained('cita')->cascadeOnDelete();
             $table->string('estado_anterior', 32)->nullable();
             $table->string('estado_nuevo', 32);
-            $table->uuid('actor_usuario_id')->nullable();
+            $table->foreignUuid('actor_usuario_id')->nullable()->constrained('usuario')->nullOnDelete();
             $table->string('actor_rol', 32)->nullable();
             $table->jsonb('payload')->nullable();
             $table->timestampTz('created_at');
@@ -228,6 +236,11 @@ return new class extends Migration
             $table->string('clave', 64)->unique();
             $table->uuid('usuario_id')->nullable();
             $table->string('endpoint', 120);
+            // Hash SHA-256 del cuerpo del request (no el payload completo, evita
+            // duplicar datos potencialmente sensibles) — detecta que la misma
+            // clave se reuse con un contenido distinto (revisión de base de
+            // datos, 2026-09-28).
+            $table->string('payload_hash', 64)->nullable();
             $table->smallInteger('status')->nullable();   // NULL = en curso
             $table->jsonb('respuesta')->nullable();
             $table->timestampTz('created_at');
@@ -241,7 +254,7 @@ return new class extends Migration
         Schema::dropIfExists('idempotencia');
         Schema::dropIfExists('disponibilidad_dia');
         Schema::dropIfExists('espera');
-        Schema::dropIfExists('cita_evento');
+        Schema::dropIfExists('cita_bitacora');
         Schema::dropIfExists('cita_producto');
         Schema::dropIfExists('cita_item');
         Schema::dropIfExists('cita');

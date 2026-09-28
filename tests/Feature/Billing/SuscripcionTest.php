@@ -5,6 +5,7 @@ namespace Tests\Feature\Billing;
 use App\Models\Negocio;
 use App\Models\NegocioMiembro;
 use App\Models\Plan;
+use App\Models\Suscripcion;
 use App\Models\Usuario;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Concerns\CreaNegocioDePrueba;
@@ -17,7 +18,7 @@ class SuscripcionTest extends TestCase
 
     public function test_activar_calcula_el_precio_segun_la_cantidad_de_profesionales(): void
     {
-        Plan::factory()->create(['codigo' => 'pro']);
+        Plan::factory()->pro()->create(['codigo' => 'pro']);
         [, $token, $negocio] = $this->propietarioConNegocio();
 
         $this->withHeader('Authorization', "Bearer {$token}")
@@ -33,7 +34,7 @@ class SuscripcionTest extends TestCase
 
     public function test_un_admin_no_puede_gestionar_la_suscripcion_solo_el_propietario_legal(): void
     {
-        Plan::factory()->create(['codigo' => 'pro']);
+        Plan::factory()->pro()->create(['codigo' => 'pro']);
         [, , $negocio] = $this->propietarioConNegocio();
 
         $admin = Usuario::factory()->create();
@@ -46,10 +47,15 @@ class SuscripcionTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_cancelar_vuelve_el_negocio_a_free(): void
+    /**
+     * Revisión de base de datos 2026-09-28: cancelar bajaba el negocio a
+     * Free de inmediato, sin respetar el período ya pagado (mensual o
+     * anual). Ahora solo marca `'cancelada'` — el downgrade real lo hace
+     * `ActualizarVigenciaSuscripciones` cuando `vigente_hasta` se cumpla.
+     */
+    public function test_cancelar_no_baja_el_negocio_de_inmediato(): void
     {
-        Plan::factory()->create(['codigo' => 'pro']);
-        Plan::factory()->create(['codigo' => 'free']);
+        Plan::factory()->pro()->create(['codigo' => 'pro']);
         [, $token, $negocio] = $this->propietarioConNegocio();
 
         $suscripcionId = $this->withHeader('Authorization', "Bearer {$token}")
@@ -62,7 +68,34 @@ class SuscripcionTest extends TestCase
             ->assertOk()
             ->assertJsonPath('estado', 'cancelada');
 
-        $this->assertFalse($negocio->fresh()->esPro());
+        $this->assertTrue($negocio->fresh()->esPro());
+    }
+
+    /**
+     * Revisión de base de datos 2026-09-28: sin el índice único parcial,
+     * activar dos veces dejaba dos suscripciones 'activa' a la vez para el
+     * mismo negocio.
+     */
+    public function test_activar_una_segunda_suscripcion_cancela_la_anterior(): void
+    {
+        Plan::factory()->pro()->create(['codigo' => 'pro']);
+        [, $token, $negocio] = $this->propietarioConNegocio();
+
+        $primeraId = $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson("/api/v1/negocios/{$negocio->id}/suscripcion", [
+                'plan' => 'pro', 'profesionales' => 1, 'ciclo' => 'mensual',
+            ])->json('id');
+
+        $segundaId = $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson("/api/v1/negocios/{$negocio->id}/suscripcion", [
+                'plan' => 'pro', 'profesionales' => 2, 'ciclo' => 'mensual',
+            ])
+            ->assertCreated()
+            ->json('id');
+
+        $this->assertSame('cancelada', Suscripcion::find($primeraId)->estado);
+        $this->assertSame('activa', Suscripcion::find($segundaId)->estado);
+        $this->assertSame(1, Suscripcion::where('negocio_id', $negocio->id)->where('estado', 'activa')->count());
     }
 
     public function test_un_extrano_no_puede_ver_la_suscripcion_de_otro_negocio(): void

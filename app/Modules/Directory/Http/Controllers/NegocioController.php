@@ -24,7 +24,7 @@ class NegocioController extends Controller
         return $this->ejecutar(function () use ($negocio) {
             $this->authorize('ver', $negocio);
 
-            return NegocioResource::make($negocio->load('plan'));
+            return NegocioResource::make($negocio->load('plan', 'fotoPerfil', 'portadaImagen'));
         });
     }
 

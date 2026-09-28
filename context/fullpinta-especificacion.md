@@ -155,12 +155,17 @@ usuario
   telefono_verificado   boolean DEFAULT false
   google_id             varchar UNIQUE NULL     -- `sub` del id_token de Google
   email                 varchar UNIQUE NULL
+  email_verificado      boolean DEFAULT false   -- UNIQUE evita duplicados, no prueba propiedad (§13.1)
   nombre                varchar
-  foto_url              varchar NULL
+  foto_perfil_id        uuid FK -> imagen NULL
+  genero                enum(m, f, otro, no_decir) NULL
+  fecha_nacimiento      date NULL
   password_hash         varchar NULL            -- NULL = cliente sombra
   anonimizado_at        timestamptz NULL        -- LOPDP: derecho de eliminación
   created_at, updated_at
 ```
+
+`genero`/`fecha_nacimiento` viven aquí, no en `cliente_perfil` (revisión de base de datos, 2026-09-28): son atributos de la persona, no de su comportamiento como cliente — le sirven igual a un dueño o a un profesional.
 
 En Ecuador el teléfono es mejor identificador que el email: más gente lo tiene consistente y sirve para WhatsApp. Es **obligatorio para toda cuenta**, sin importar por qué método se registró — verificado siempre por el mismo OTP.
 
@@ -172,14 +177,16 @@ En Ecuador el teléfono es mejor identificador que el email: más gente lo tiene
 
 En los tres, si la cuenta nace con `telefono_verificado: false` (Google o correo), se verifica con el **mismo** `POST /auth/otp/solicitar` + `POST /auth/otp/verificar` de siempre — no hay un mecanismo de verificación aparte por método.
 
-**Cliente sombra** (`password_hash IS NULL`): la recepción agenda un walk-in con solo nombre y teléfono. Cuando esa persona se registra en la app con el mismo teléfono (por cualquiera de los tres métodos), **reclama** el registro y hereda su historial. Sin esto pasa una de dos cosas, ambas malas: los walk-ins no entran a la agenda y la disponibilidad miente, o entran duplicados y la métrica de cliente nuevo queda inservible. OTP y Google asignan un hash aleatorio e inutilizable a `password_hash` (nunca se autentica por él); solo el registro por correo guarda ahí el hash real de la contraseña elegida.
+**Cliente sombra** (`password_hash IS NULL`): la recepción agenda un walk-in con solo nombre y teléfono. Cuando esa persona se registra en la app con el mismo teléfono (por cualquiera de los tres métodos), **reclama** el registro y hereda su historial. Sin esto pasa una de dos cosas, ambas malas: los walk-ins no entran a la agenda y la disponibilidad miente, o entran duplicados y la métrica de cliente nuevo queda inservible. OTP y Google asignan un hash aleatorio e inutilizable a `password_hash` (nunca se autentica por él); solo el registro por correo (y, después, recuperar contraseña — ver abajo) guarda ahí el hash real de una contraseña elegida por la persona.
+
+**Verificación de propiedad del email** (`POST /cuenta/email/solicitar-verificacion` + `POST /cuenta/email/verificar` 🔒, revisión de base de datos, 2026-09-29): reutiliza `otp`, generalizado para aceptar un correo como destino además de un teléfono (exactamente uno de los dos por fila, nunca ninguno ni ambos).
+
+**Recuperar / cambiar contraseña** (§4.3): recuperar (`POST /auth/contrasena/olvide` + `POST /auth/contrasena/restablecer`, públicos) admite **dos canales que el usuario elige** — teléfono por WhatsApp o correo — mismo mecanismo de código de un solo uso que el OTP de login. Verificar el código por el canal `email` de paso marca `email_verificado`: recibir y escribir ese código ya prueba la propiedad del correo. Cambiar (`PUT /cuenta/contrasena` 🔒) es un flujo aparte y más simple: se conoce la contraseña actual, no hace falta ningún código. Sirve igual para completar de contraseña una cuenta que nunca tuvo una (registrada solo por OTP o Google) — no es un caso de borde, es la misma cuenta con un método de acceso más.
 
 ```
 cliente_perfil
   id                      uuid PK
   usuario_id              uuid FK -> usuario UNIQUE
-  genero                  enum(m, f, otro, no_decir) NULL
-  fecha_nacimiento        date NULL
   no_shows                int DEFAULT 0
   cancelaciones_tardias   int DEFAULT 0
   requiere_confirmacion   boolean DEFAULT false
@@ -197,21 +204,37 @@ tamano_mascota
   orden    smallint DEFAULT 0
   activo   boolean
 
+especie_mascota
+  id       uuid PK
+  codigo   varchar(20) UNIQUE   -- perro, gato, otro (sembrado inicial; se amplía cuando grooming se active)
+  nombre   varchar
+  icono    varchar(60) NULL
+  activo   boolean
+
+raza_mascota
+  id           uuid PK
+  especie_id   uuid FK -> especie_mascota
+  codigo       varchar(60)   -- incluye "mestizo" como fila normal, por especie
+  nombre       varchar
+  activo       boolean
+  UNIQUE (especie_id, codigo)
+
 mascota
   id             uuid PK
   usuario_id     uuid FK -> usuario
   nombre         varchar
-  especie        enum(perro, gato, otro)
-  raza           varchar NULL
+  especie_id     uuid FK -> especie_mascota
+  raza_id        uuid FK -> raza_mascota NULL
   tamano_id      uuid FK -> tamano_mascota
   pelaje         enum(corto, medio, largo, rizado, doble_capa) NULL
   peso_kg        numeric(5,2) NULL
   temperamento   enum(tranquilo, nervioso, agresivo, desconocido) NULL
   nota           text NULL      -- "no tolera secadora"
+  foto_perfil_id uuid FK -> imagen NULL
   activo         boolean
 ```
 
-`tamano_mascota` es tabla de parámetros compartida: también la referencia `servicio_local_tamano` (§4.5) — antes era el mismo `varchar`+`CHECK` repetido en las dos tablas.
+`tamano_mascota` es tabla de parámetros compartida: también la referencia `servicio_local_tamano` (§4.5) — antes era el mismo `varchar`+`CHECK` repetido en las dos tablas. `especie_mascota`/`raza_mascota` siguen el mismo criterio: `especie` era un enum que en realidad es catálogo (mismo patrón ya corregido para `rubro`/`amenidad_categoria`), y `raza` como texto libre no permitía agrupar por especie ni sembrar opciones consistentes.
 
 ```
 favorito
@@ -220,12 +243,32 @@ favorito
   local_id       uuid FK NULL
   profesional_id uuid FK NULL
 
+finalidad_consentimiento
+  id             uuid PK
+  codigo         varchar(40) UNIQUE   -- operacion_servicio, comunicaciones_transaccionales,
+                                      -- marketing, transferencia_internacional
+  nombre         varchar
+  descripcion    text
+  obligatorio    boolean DEFAULT false
+  orden          smallint DEFAULT 0
+  activo         boolean DEFAULT true
+  documento_tipo varchar(30) NULL     -- qué tipo de documento_legal la respalda, si alguno (ver abajo)
+
+documento_legal
+  id              uuid PK
+  tipo            enum(politica_privacidad, politica_marketing, terminos_condiciones)
+  version         varchar(20)
+  contenido       text                -- texto completo, markdown, inmutable una vez publicado
+  url             varchar NULL        -- página pública equivalente, opcional
+  vigente_desde   timestamptz
+  vigente_hasta   timestamptz NULL
+  UNIQUE (tipo, version)
+
 consentimiento
   id                  uuid PK
   usuario_id          uuid FK -> usuario
-  finalidad           enum(operacion_servicio, comunicaciones_transaccionales,
-                           marketing, transferencia_internacional)
-  documento_version   varchar(20)
+  finalidad_id        uuid FK -> finalidad_consentimiento
+  documento_legal_id  uuid FK -> documento_legal NULL
   otorgado            boolean
   origen              enum(app, local, web)
   ip                  varchar(45) NULL
@@ -236,22 +279,46 @@ consentimiento
 
 El consentimiento se registra **por finalidad**, con versión y timestamp, y debe poder probarse. Operar la cita no es lo mismo que recibir promociones. Ver §13.
 
+`finalidad` es tabla de catálogo, no un enum fijo (revisión de base de datos, 2026-09-28): el texto que ve el usuario en la pantalla de consentimiento vive en la base, no hardcodeado en el Flutter. `documento_legal` es el recibo del texto legal en sí — separado de `consentimiento` (que es el recibo de QUIÉN aceptó QUÉ) porque varias finalidades pueden compartir el mismo documento. `finalidad_consentimiento.documento_tipo` y `consentimiento.documento_legal_id` son **nullable a propósito**: no toda finalidad necesita un documento legal formal detrás — cuáles sí es decisión legal (LOPDP), no técnica, y sigue pendiente de confirmar.
+
 ### 4.4 Módulo Directory
 
 ```
 plan
-  id       uuid PK
-  codigo   varchar(10) UNIQUE   -- free, pro
-  nombre   varchar
-  activo   boolean
+  id                        uuid PK
+  codigo                    varchar(10) UNIQUE   -- free, pro
+  nombre                    varchar
+  limite_locales            smallint NULL        -- NULL = ilimitado
+  limite_profesionales      smallint NULL        -- NULL = ilimitado
+  limite_fotos              smallint NULL        -- NULL = ilimitado
+  liquidacion_desglose      boolean DEFAULT false
+  recordatorios_whatsapp    boolean DEFAULT false
+  responder_resenas         boolean DEFAULT false
+  estadisticas_completas    boolean DEFAULT false
+  promociones_horas_valle   boolean DEFAULT false
+  bloque_destacados         boolean DEFAULT false
+  precio_base               numeric(10,2) DEFAULT 0
+  precio_adicional          numeric(10,2) DEFAULT 0
+  meses_pago_anual          smallint DEFAULT 12  -- 10 = paga 10, se lleva 12
+  orden                     smallint DEFAULT 0
+  activo                    boolean
+```
+
+Cada capacidad de la tabla §9.4 se lee directo de su columna — nunca comparando `codigo = 'pro'` como proxy. El enforcement real de estos límites (bloquear un 2º local en Free, etc.) queda diferido a propósito: coincide con la decisión de "todo gratis los primeros ~6 meses" (§9.7). Esto solo modela los datos.
+
+```
 
 negocio
   id                   uuid PK
   nombre_marca         varchar
   ruc                  varchar(13) NULL
+  ruc_verificado       boolean DEFAULT false
+  ruc_verificado_at    timestamptz NULL
   propietario_id       uuid FK -> usuario
   plan_id              uuid FK -> plan
   plan_vigente_hasta   date NULL
+  foto_perfil_id       uuid FK -> imagen NULL   -- logo de marca
+  portada_imagen_id    uuid FK -> imagen NULL
 
 local
   id                          uuid PK
@@ -273,6 +340,8 @@ local
 
 `plan` es tabla de parámetros compartida: también la referencia `suscripcion` (§4.10) — antes era el mismo `varchar`+`CHECK` repetido en las dos tablas.
 
+**El badge público de "verificado" no es solo `local.verificado`** (revisión de base de datos, 2026-09-28): exige también `negocio.ruc_verificado` — un local no puede mostrarse verificado si el RUC del negocio dueño no lo está. `Local::estaVerificado()` combina las dos columnas; `local.verificado`/`negocio.ruc_verificado` por separado son solo el estado interno de cada validación. Sigue sin existir ningún flujo para verificar ni el local ni el RUC — es trabajo aparte, mismo alcance pendiente que la moderación de `reporte` y las solicitudes de `solicitud_catalogo`.
+
 ```sql
 CREATE INDEX local_ubicacion_gist ON local USING gist (ubicacion);
 ```
@@ -292,7 +361,7 @@ Varias filas por día permiten partir jornada (mañana/tarde).
 ```
 amenidad_categoria
   id       uuid PK
-  codigo   varchar(20) UNIQUE   -- confort, entretenimiento, ninos, accesibilidad, pago, politica
+  codigo   varchar(20) UNIQUE   -- confort, entretenimiento, ninos, accesibilidad, politica
   nombre   varchar
   icono    varchar(60) NULL
   orden    smallint DEFAULT 0
@@ -311,9 +380,24 @@ local_amenidad
   amenidad_id  uuid FK
   detalle      varchar NULL   -- "cerveza artesanal", "PS5"
   PK (local_id, amenidad_id)
+
+metodo_pago
+  id       uuid PK
+  codigo   varchar(20) UNIQUE   -- efectivo, transferencia, tarjeta, payphone
+  nombre   varchar
+  icono    varchar(60) NULL
+  orden    smallint DEFAULT 0
+  activo   boolean
+
+local_metodo_pago
+  local_id        uuid FK
+  metodo_pago_id  uuid FK
+  PK (local_id, metodo_pago_id)
 ```
 
 **Por qué `categoria` es tabla y no un `enum` de texto (desviación de una versión anterior de este documento).** Un `varchar` + `CHECK` para la categoría de amenidad se repetía tal cual en cada fila de `amenidad`; promoverlo a tabla propia evita repetir el mismo string y permite referenciar por `id`, igual que `servicio_categoria` (§4.5). La regla general del proyecto es: si un valor se repite como dato en más de una fila y tiene atributos propios (nombre, ícono, orden), es tabla y se referencia por id — no un `varchar` suelto repetido.
+
+**`metodo_pago` se extrajo de la categoría 'pago' de `amenidad` (revisión de base de datos, 2026-09-28):** un método de pago no es una comodidad del local — mezclarlos en `amenidad_categoria` impedía referenciarlo también desde `cita` sin repetir el mismo enum. `local_metodo_pago` reemplaza las filas que antes vivían en `local_amenidad` bajo esa categoría.
 
 Semilla del catálogo de amenidades:
 
@@ -321,10 +405,11 @@ Semilla del catálogo de amenidades:
 - **entretenimiento**: TV, consola, mesa de billar, revistas
 - **ninos**: área de niños, guardería, silla infantil
 - **accesibilidad**: acceso silla de ruedas, baño accesible, parqueo, parqueo gratis
-- **pago**: tarjeta, transferencia, Payphone, efectivo
 - **politica**: atiende mujeres, atiende niños, acepta mascotas en sala, solo con cita, atiende sin cita
 
-**Distinción crítica:** "acepta mascotas en sala" es una amenidad. "Baña perros" es un servicio de la vertical mascotas. Confundirlas lleva clientes con su perro a un local que solo lo deja entrar.
+Semilla del catálogo `metodo_pago` (ya no es categoría de amenidad): tarjeta, transferencia, Payphone, efectivo.
+
+**Distinción crítica:** "acepta mascotas en sala" es una amenidad. "Baña perros" es un servicio del rubro mascotas. Confundirlas lleva clientes con su perro a un local que solo lo deja entrar.
 
 ```
 negocio_miembro
@@ -336,18 +421,30 @@ negocio_miembro
   desde        date
   hasta        date NULL
 
-local_foto
-  id         uuid PK
-  local_id   uuid FK -> local
-  url        varchar
-  tipo       enum(fachada, interior, trabajo)
-  orden      smallint
+tipo_imagen
+  id       uuid PK
+  codigo   varchar(20) UNIQUE   -- perfil, portada, fachada, interior, muestra
+  nombre   varchar
+  icono    varchar(60) NULL
+  orden    smallint DEFAULT 0
+  activo   boolean
+
+imagen
+  id            uuid PK
+  objeto_type   varchar(20)    -- 'local', 'profesional', 'mascota', 'usuario'... vía Relation::morphMap(), nunca el FQCN
+  objeto_id     uuid
+  tipo_id       uuid FK -> tipo_imagen
+  url           varchar
+  orden         smallint DEFAULT 0
+  created_at    timestamptz
 ```
+
+`imagen` es la galería polimórfica compartida (revisión de base de datos, 2026-09-28): reemplaza `local_foto`/`profesional_foto` (antes una tabla por dueño, con el mismo shape repetido) y los `foto_url` sueltos de `usuario`/`profesional`. `local` se queda sin puntero propio — es galería pura (fachada/interior/muestra); `usuario`/`profesional`/`mascota` sí tienen `foto_perfil_id` (§4.3, §4.6), independientes entre sí.
 
 ### 4.5 Módulo Catalog
 
 ```
-vertical
+rubro
   id       uuid PK
   codigo   varchar(20) UNIQUE   -- barberia, estetica, unas, mascotas
   nombre   varchar
@@ -355,13 +452,13 @@ vertical
 
 servicio_categoria
   id           uuid PK
-  vertical_id  uuid FK -> vertical
+  rubro_id     uuid FK -> rubro
   codigo       varchar(40)       -- corte, barba, color, bano
   nombre       varchar           -- "Cortes"
   icono        varchar(60) NULL
   orden        smallint DEFAULT 0
   activo       boolean
-  UNIQUE (vertical_id, codigo)
+  UNIQUE (rubro_id, codigo)
 
 tipo_recurso
   id       uuid PK
@@ -383,11 +480,11 @@ catalogo_servicio
 
 **Lo define la plataforma, no los locales.** Si cada local escribe sus servicios en texto libre, se termina con "corte caballero", "corte de cabello", "fade", "CORTE" y "corte + barba" como cosas distintas, y la búsqueda y el filtro de precios mueren. No hay vuelta atrás fácil de eso.
 
-**Por qué `categoria` y `vertical` son tablas y no campos de texto.** Un `varchar` libre en una tabla que la plataforma controla termina con "corte", "cortes" y "Corte" conviviendo, y agrupa mal el perfil del local. Además el perfil agrupa los servicios por categoría, así que hacen falta `nombre` y `orden` en algún lado — en un campo de texto no caben. La regla del proyecto: si un dato se repite en más de una fila o en más de una tabla (como pasaba con `vertical`, repetido como `CHECK` en `servicio_categoria`, `catalogo_servicio` y `solicitud_catalogo`), se promueve a tabla propia y se referencia por `id` — nunca se repite el mismo `varchar` suelto en cada sitio que lo necesita. Son unas pocas filas, no un catálogo que crezca.
+**Por qué `categoria` y `rubro` son tablas y no campos de texto.** Un `varchar` libre en una tabla que la plataforma controla termina con "corte", "cortes" y "Corte" conviviendo, y agrupa mal el perfil del local. Además el perfil agrupa los servicios por categoría, así que hacen falta `nombre` y `orden` en algún lado — en un campo de texto no caben. La regla del proyecto: si un dato se repite en más de una fila o en más de una tabla (como pasaba con `rubro`, repetido como `CHECK` en `servicio_categoria`, `catalogo_servicio` y `solicitud_catalogo`), se promueve a tabla propia y se referencia por `id` — nunca se repite el mismo `varchar` suelto en cada sitio que lo necesita. Son unas pocas filas, no un catálogo que crezca.
 
-`codigo` en `servicio_categoria` es único solo junto a `vertical_id`, no por sí solo: el mismo código existe en verticales distintas — `corte` es categoría de barbería y también de estética, y no son la misma cosa. `catalogo_servicio` no guarda su propia vertical: se deriva de `categoria_id -> servicio_categoria.vertical_id`, así no hay dos columnas que puedan desincronizarse (un servicio con categoría de barbería pero vertical "estetica", por ejemplo) — la consistencia es estructural, no un constraint aparte que vigilarla.
+`codigo` en `servicio_categoria` es único solo junto a `rubro_id`, no por sí solo: el mismo código existe en rubros distintos — `corte` es categoría de barbería y también de estética, y no son la misma cosa. `catalogo_servicio` no guarda su propio rubro: se deriva de `categoria_id -> servicio_categoria.rubro_id`, así no hay dos columnas que puedan desincronizarse (un servicio con categoría de barbería pero rubro "estetica", por ejemplo) — la consistencia es estructural, no un constraint aparte que vigilarla.
 
-Este documento normalizó `vertical` y `categoria` de amenidad en 2026-09-15 (antes vivían como `varchar` + `CHECK` en cada tabla que los usaba). `recurso_tipo`, `profesional_rol` y `mascota_tamano` se quedan como `varchar` + `CHECK` (§4.2) por ahora: no se repiten entre tablas ni tienen atributos propios (nombre, ícono, orden) — se revisan si eso cambia.
+Este documento normalizó `rubro` y `categoria` de amenidad en 2026-09-15 (antes vivían como `varchar` + `CHECK` en cada tabla que los usaba; `rubro` se llamaba `vertical` hasta el 2026-09-28, cuando se renombró por preferencia de nomenclatura). `recurso_tipo`, `profesional_rol` y `mascota_tamano` se quedan como `varchar` + `CHECK` (§4.2) por ahora: no se repiten entre tablas ni tienen atributos propios (nombre, ícono, orden) — se revisan si eso cambia.
 
 Semilla de categorías:
 
@@ -403,7 +500,7 @@ Semilla de servicios:
 - **unas**: manicura, pedicura, esmaltado semipermanente, uñas acrílicas, retiro
 - **mascotas**: baño, baño + corte, corte de uñas, limpieza de oídos, deslanado
 
-Las verticales son un campo del catálogo, **no tipos distintos de local**. Así un local puede ofrecer corte de caballero y uñas sin dos modelos paralelos, y el filtro del usuario sale gratis.
+Los rubros son un campo del catálogo, **no tipos distintos de local**. Así un local puede ofrecer corte de caballero y uñas sin dos modelos paralelos, y el filtro del usuario sale gratis.
 
 ```
 servicio_local
@@ -432,7 +529,8 @@ servicio_local_tamano
 solicitud_catalogo
   id                    uuid PK
   local_id              uuid FK
-  vertical_id           uuid FK -> vertical
+  solicitante_id        uuid FK -> usuario   -- quién la pidió (mismo criterio que reporte.reportante_id)
+  rubro_id              uuid FK -> rubro
   nombre_propuesto      varchar
   descripcion           text NULL
   estado                enum(pendiente, aprobada, rechazada)
@@ -443,12 +541,14 @@ producto
   id            uuid PK
   local_id      uuid FK -> local
   nombre        varchar         -- pomada, cera, shampoo
+  descripcion   text NULL
   precio        numeric(10,2)
   comision_pct  numeric(5,2) DEFAULT 0
+  foto_id       uuid FK -> imagen NULL
   activo        boolean
 ```
 
-Los productos son necesarios para que la liquidación de comisiones sea correcta: llevan porcentaje distinto (o cero) al de un servicio.
+Los productos son necesarios para que la liquidación de comisiones sea correcta: llevan porcentaje distinto (o cero) al de un servicio. Los `activo: true` de un local aparecen también en su perfil público (§7.4, solo exhibición informativa) — sin catálogo maestro de productos y sin flujo de compra.
 
 ### 4.6 Módulo Staffing
 
@@ -459,8 +559,7 @@ profesional
   nombre           varchar
   alias            varchar NULL      -- "Kevin el Fade"
   bio              text NULL
-  foto_url         varchar NULL
-  independiente    boolean           -- renta silla vs empleado
+  foto_perfil_id   uuid FK -> imagen NULL   -- propia, independiente de usuario.foto_perfil_id
   perfil_publico   boolean DEFAULT true
   traslado_min     smallint DEFAULT 30
 ```
@@ -469,15 +568,7 @@ profesional
 
 `traslado_min`: minutos mínimos de separación cuando dos citas consecutivas son en locales distintos. **No lo puede validar un constraint** — la base no sabe de geografía. Va en el motor de disponibilidad.
 
-```
-profesional_foto
-  id               uuid PK
-  profesional_id   uuid FK
-  url              varchar
-  orden            smallint
-```
-
-El portafolio del profesional importa más de lo que parece: la gente escoge barbero viendo cortes, no leyendo precios. Es probablemente el mejor mecanismo de descubrimiento del producto.
+El portafolio del profesional (galería `imagen`, `objeto_type = 'profesional'`, §4.4) importa más de lo que parece: la gente escoge barbero viendo cortes, no leyendo precios. Es probablemente el mejor mecanismo de descubrimiento del producto.
 
 ```
 asignacion
@@ -585,15 +676,12 @@ Una ausencia del profesional (`profesional_id` con `local_id` NULL) lo bloquea e
 cliente_local
   usuario_id                uuid FK
   local_id                  uuid FK
-  primera_cita_at           timestamptz NULL
-  ultima_cita_at            timestamptz NULL
-  total_citas               int DEFAULT 0
   nota                      text NULL
   profesional_preferido_id  uuid FK NULL
   PK (usuario_id, local_id)
 ```
 
-`cita.cliente_nuevo` se calcula contra esta tabla: si no existe la fila, es cliente nuevo para ese local. `nota` es lo que hace que el cliente vuelva y lo que un barbero suplente necesita cuando el titular no está: "fade 2 a los lados, tijera arriba", "tinte 7.3 + 20 vol".
+`nota` es lo que hace que el cliente vuelva y lo que un barbero suplente necesita cuando el titular no está: "fade 2 a los lados, tijera arriba", "tinte 7.3 + 20 vol". `nota`/`profesional_preferido_id` son las únicas dos columnas propias — sin contadores de visitas (revisión de base de datos, 2026-09-29): `cita.cliente_nuevo` y la ficha del cliente (total de visitas, primera/última) se calculan en vivo contra `cita` (índice `cita_cliente_local_estado`), no se guardan aquí como estado que se pueda desincronizar.
 
 ```
 cita
@@ -612,7 +700,7 @@ cita
 
   precio_total      numeric(10,2)
   propina           numeric(10,2) DEFAULT 0 CHECK (>= 0)
-  metodo_pago       varchar(16) NULL   -- efectivo, transferencia, tarjeta, payphone
+  metodo_pago_id    uuid FK -> metodo_pago NULL
 
   cliente_nuevo     boolean
 
@@ -662,12 +750,12 @@ cita_producto
 **Comisión congelada:** si el dueño le cambia el porcentaje al barbero, las citas ya atendidas se liquidan con el porcentaje vigente cuando se atendieron. Sin esto, cambiar una comisión reescribe el pasado y se genera un reclamo.
 
 ```
-cita_evento
+cita_bitacora
   id                  uuid PK
   cita_id             uuid FK -> cita
   estado_anterior     varchar(32) NULL
   estado_nuevo        varchar(32)
-  actor_usuario_id    uuid NULL
+  actor_usuario_id    uuid NULL FK -> usuario
   actor_rol           varchar(32) NULL
   payload             jsonb NULL
   created_at          timestamptz
@@ -709,6 +797,7 @@ idempotencia
   clave         varchar(64) UNIQUE
   usuario_id    uuid NULL
   endpoint      varchar(120)
+  payload_hash  varchar(64) NULL   -- sha256 del body; detecta la misma clave reusada con contenido distinto
   status        smallint
   respuesta     jsonb
   created_at    timestamptz
@@ -737,7 +826,7 @@ resena
 
 reporte
   id             uuid PK
-  tipo            enum(resena, foto, local, profesional)
+  objeto_type     enum(resena, foto, local, profesional)   -- MorphTo puro (§4.4), no `tipo`
   objeto_id       uuid
   reportante_id   uuid FK -> usuario
   motivo          enum(difamacion, contenido_inapropiado, falso, spam, otro)
@@ -782,7 +871,7 @@ notificacion
   usuario_id        uuid FK
   tipo_evento       varchar
   categoria_id      uuid FK -> notificacion_categoria
-  canal             enum(push, whatsapp, sms, websocket)
+  canal             enum(push, whatsapp, sms, websocket, email)
   cita_id           uuid FK NULL
   plantilla         varchar NULL
   estado            enum(programada, enviada, entregada, leida, fallida, cancelada)
@@ -849,6 +938,14 @@ liquidacion
 
 `total_propinas` se suma al pago del profesional pero **no** entra en la base de comisión.
 
+**Ciclo de vigencia de `suscripcion`** (revisión de base de datos, 2026-09-28), job diario `ActualizarVigenciaSuscripciones`:
+
+- Cancelar (`POST /suscripciones/{suscripcion}/cancelar`) solo marca `estado='cancelada'` — el negocio **sigue en su plan** hasta que `vigente_hasta` se cumpla de forma natural, para respetar el período ya pagado (mensual o anual). El downgrade a Free lo hace el job, no el endpoint.
+- Cuando `vigente_hasta` se cumple y la suscripción nunca canceló (`estado='activa'`): se registra un `cobro` pendiente para el siguiente período y pasa a `'gracia'`.
+- `'gracia'` que supera el margen de tolerancia (10 días, `config('fullpinta.suscripcion.dias_gracia')`) sin que el cobro se marque pagado → `'vencida'`, negocio a Free.
+- `'cancelada'` cuyo `vigente_hasta` ya se cumplió → negocio a Free, sin cobro nuevo.
+- Pendiente (depende de un `EnviadorEmail` que todavía no existe, §11.2): notificar "suscripción por vencer" 7 días antes.
+
 ### 4.11 Constraints críticos
 
 Los tres que hacen correcto el sistema. Sin ellos, la lógica de aplicación falla bajo concurrencia.
@@ -901,6 +998,7 @@ CREATE INDEX cita_local_inicio         ON cita (local_id, inicio);
 CREATE INDEX cita_profesional_inicio   ON cita (profesional_id, inicio);
 CREATE INDEX cita_cliente_inicio       ON cita (cliente_id, inicio DESC);
 CREATE INDEX cita_holds_vencidos       ON cita (expira_at) WHERE estado = 'reservada';
+CREATE INDEX cita_cliente_local_estado ON cita (cliente_id, local_id, estado);
 CREATE INDEX turno_local_dia           ON turno (local_id, dia_semana);
 CREATE INDEX excepcion_prof_rango      ON excepcion (profesional_id, fecha_inicio, fecha_fin);
 CREATE INDEX habilidad_servicio        ON habilidad (servicio_local_id);
@@ -1004,7 +1102,7 @@ Estados terminales: `completada`, `cancelada_cliente`, `cancelada_local`, `no_sh
 - Solo `completada` habilita reseña
 - Solo `completada` cuenta para el ranking del local y para la liquidación de comisiones
 - `reagendada` no penaliza al cliente
-- Cada transición escribe una fila en `cita_evento`
+- Cada transición escribe una fila en `cita_bitacora`
 - Cada transición **cancela y reprograma** las notificaciones pendientes de esa cita
 
 ---
@@ -1063,14 +1161,14 @@ JOIN servicio_categoria sc ON sc.id = cs.categoria_id
 LEFT JOIN disponibilidad_dia dd ON dd.local_id = l.id AND dd.fecha = :fecha
 WHERE l.estado = 'activo'
   AND ST_DWithin(l.ubicacion, :punto, :radio_m)
-  AND sc.vertical_id = :vertical_id
+  AND sc.rubro_id = :rubro_id
   AND sl.precio BETWEEN :min AND :max
   AND (:solo_disponibles = false OR dd.slots_libres > 0)
 ORDER BY l.score_ranking DESC, distancia_m ASC
 LIMIT 20;
 ```
 
-Filtros de la v1: vertical, servicio específico, rango de precio, distancia, disponibilidad hoy/mañana, amenidades, abierto ahora.
+Filtros de la v1: rubro, servicio específico, rango de precio, distancia, disponibilidad hoy/mañana, amenidades, abierto ahora.
 
 El filtro de disponibilidad **consulta `disponibilidad_dia`**, no el motor de slots. Correr el motor por cada local del resultado, en cada scroll, es insostenible.
 
@@ -1171,7 +1269,7 @@ Si la plata del cliente pasa por la plataforma y después se le paga al barbero,
 
 Y lo decisivo: **la liquidación de comisiones no necesita que la plataforma maneje plata.** Solo necesita saber qué se cobró y a quién se asignó. El killer feature funciona con cero dependencia de pagos.
 
-En la v1 solo se registra `cita.metodo_pago` (efectivo, transferencia, tarjeta, Payphone) para que la comisión salga bien.
+En la v1 solo se registra `cita.metodo_pago_id` (efectivo, transferencia, tarjeta, Payphone — catálogo `metodo_pago`) para que la comisión salga bien.
 
 ### 10.2 v1.5: cobro sin enrutar dinero
 
@@ -1511,7 +1609,7 @@ Lo que hay que modelar desde el día uno, no parchar después:
 
 - **Consentimiento registrado** con versión y timestamp, separado por finalidad: operar la cita ≠ mandar promociones (tabla `consentimiento`, §4.3)
 - **Derecho de eliminación**: `usuario.anonimizado_at` — se borran datos personales y se conserva la cita anonimizada, que se necesita para las estadísticas del local
-- **Política de privacidad y términos versionados**
+- **Política de privacidad y términos versionados** (tabla `documento_legal`, §4.3) — el esquema ya lo soporta; el contenido real de cada documento y qué finalidad lo requiere sigue pendiente de confirmar con asesoría legal LOPDP
 - **Responsable / delegado de protección de datos** designado
 - **Registro de transferencias**: Meta (WhatsApp) y Firebase son transferencia internacional y hay que declararlo
 
@@ -1550,7 +1648,7 @@ Descargas y usuarios registrados no son métricas.
 - Registro de profesional, asignación a local y turnos (incluye multi-local)
 - Roles: propietario, profesional, recepción, cliente — matriz de §3.2
 - Cliente sombra para walk-ins, con reclamo de cuenta por OTP
-- Búsqueda por cercanía con filtros (vertical, servicio, precio, amenidades, disponibilidad)
+- Búsqueda por cercanía con filtros (rubro, servicio, precio, amenidades, disponibilidad)
 - Perfil de local: servicios, precios, amenidades, profesionales, reseñas, fotos
 - Perfil y portafolio del profesional
 - Agendamiento con slots reales (habilidad + recurso + traslado + concurrencia)
@@ -1569,7 +1667,7 @@ Descargas y usuarios registrados no son métricas.
 - Múltiples sucursales
 - Fidelización / puntos
 - Liquidación de comisiones (es el gancho del Pro, va al encender el plan)
-- Vertical mascotas activa (modelada, no activada)
+- Rubro mascotas activo (modelado, no activado)
 - Citas recurrentes
 - Estadísticas completas
 - Cualquier cosa con IA

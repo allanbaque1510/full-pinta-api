@@ -19,7 +19,7 @@ class BuscarLocalesRequest extends FormRequest
             'lat' => ['required', 'numeric', 'between:-90,90'],
             'lng' => ['required', 'numeric', 'between:-180,180'],
             'radio_m' => ['sometimes', 'integer', 'min:100', 'max:50000'],
-            'vertical' => ['sometimes', 'string', Rule::exists('vertical', 'codigo')],
+            'rubro' => ['sometimes', 'string', Rule::exists('rubro', 'codigo')],
             'catalogo_servicio_id' => ['sometimes', 'uuid', Rule::exists('catalogo_servicio', 'id')],
             'precio_min' => ['sometimes', 'numeric', 'min:0'],
             'precio_max' => ['sometimes', 'numeric', 'min:0'],

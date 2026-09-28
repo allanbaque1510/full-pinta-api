@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 /**
  * Profesional (`profesional`).
@@ -28,7 +29,6 @@ class Profesional extends Model
     protected function casts(): array
     {
         return [
-            'independiente' => 'boolean',
             'perfil_publico' => 'boolean',
             'traslado_min' => 'integer',
         ];
@@ -39,9 +39,14 @@ class Profesional extends Model
         return $this->belongsTo(Usuario::class, 'usuario_id');
     }
 
-    public function fotos(): HasMany
+    public function imagenes(): MorphMany
     {
-        return $this->hasMany(ProfesionalFoto::class, 'profesional_id');
+        return $this->morphMany(Imagen::class, 'objeto');
+    }
+
+    public function fotoPerfil(): BelongsTo
+    {
+        return $this->belongsTo(Imagen::class, 'foto_perfil_id');
     }
 
     public function asignaciones(): HasMany

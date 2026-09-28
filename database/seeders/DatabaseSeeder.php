@@ -12,7 +12,7 @@ use Illuminate\Database\Seeder;
  * entorno que ya tiene datos.
  *
  * El orden importa: `servicio_categoria` y `solicitud_catalogo` referencian
- * `vertical` por id, `catalogo_servicio` referencia `servicio_categoria` y
+ * `rubro` por id, `catalogo_servicio` referencia `servicio_categoria` y
  * `tipo_recurso`, `amenidad` referencia `amenidad_categoria`.
  */
 class DatabaseSeeder extends Seeder
@@ -20,15 +20,20 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call([
-            VerticalSeeder::class,
+            TipoImagenSeeder::class,
+            RubroSeeder::class,
             ServicioCategoriaSeeder::class,
             TipoRecursoSeeder::class,
             CatalogoServicioSeeder::class,
             AmenidadCategoriaSeeder::class,
             AmenidadSeeder::class,
+            MetodoPagoSeeder::class,
             TamanoMascotaSeeder::class,
+            EspecieMascotaSeeder::class,
+            RazaMascotaSeeder::class,
             PlanSeeder::class,
             NotificacionCategoriaSeeder::class,
+            FinalidadConsentimientoSeeder::class,
         ]);
     }
 }

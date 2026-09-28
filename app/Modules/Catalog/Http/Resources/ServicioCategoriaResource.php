@@ -15,7 +15,7 @@ class ServicioCategoriaResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'vertical' => $this->vertical->codigo,
+            'rubro' => $this->rubro->codigo,
             'codigo' => $this->codigo,
             'nombre' => $this->nombre,
             'icono' => $this->icono,

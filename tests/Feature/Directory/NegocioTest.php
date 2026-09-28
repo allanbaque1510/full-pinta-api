@@ -94,4 +94,21 @@ class NegocioTest extends TestCase
             ->postJson('/api/v1/negocios', ['nombre_marca' => 'X', 'ruc' => '123'])
             ->assertUnprocessable();
     }
+
+    /**
+     * Revisión de base de datos 2026-09-28: sin flujo de verificación
+     * todavía, pero el dato ya se modela y se expone de solo lectura.
+     */
+    public function test_nace_sin_ruc_verificado_y_sin_logo(): void
+    {
+        [, $token] = $this->autenticado();
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson('/api/v1/negocios', ['nombre_marca' => 'X'])
+            ->assertCreated()
+            ->assertJsonPath('ruc_verificado', false)
+            ->assertJsonPath('ruc_verificado_at', null)
+            ->assertJsonPath('logo_url', null)
+            ->assertJsonPath('portada_url', null);
+    }
 }

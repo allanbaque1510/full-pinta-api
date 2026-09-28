@@ -19,6 +19,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('negocios/{negocio}/cobros', [CobroController::class, 'index']);
     Route::post('cobros/{cobro}/marcar-pagado', [CobroController::class, 'marcarPagado']);
+    Route::post('cobros/{cobro}/marcar-reembolsado', [CobroController::class, 'marcarReembolsado']);
 
     // Comisiones: propietario/admin, nunca recepción (§3.2).
     Route::get('locales/{local}/liquidaciones', [LiquidacionController::class, 'index']);

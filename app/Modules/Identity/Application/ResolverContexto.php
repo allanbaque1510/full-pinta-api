@@ -19,7 +19,6 @@ use App\Models\Usuario;
  * ```json
  * {
  *   "usuario_id": "uuid",
- *   "es_cliente": true,
  *   "requiere_seleccion": true,
  *   "contextos": [
  *     { "tipo": "negocio", "rol": "propietario", "negocio_id": "uuid",
@@ -30,9 +29,12 @@ use App\Models\Usuario;
  * }
  * ```
  *
- * - `es_cliente` es siempre `true`: cualquier cuenta puede agendar para sí
- *   misma (fila "Agendar para sí" de la matriz del §3.2). No es un contexto
- *   seleccionable, es una capacidad de fondo.
+ * Cualquier cuenta autenticada puede agendar para sí misma (fila "Agendar
+ * para sí" de la matriz del §3.2) sin necesitar elegir contexto — no se
+ * expone como campo porque nunca varía (revisión de base de datos,
+ * 2026-09-28): ningún caso de la spec hace que una cuenta no pueda ser
+ * cliente, así que un booleano que siempre es `true` no aporta información
+ * ni necesita ningún branch en el frontend.
  * - `requiere_seleccion`: si es `false` (0 o 1 contexto), el front entra
  *   directo sin mostrar el selector — solo hay una pantalla posible.
  * - `contexto.tipo = "negocio"` viene de `negocio_miembro` vigente:
@@ -88,7 +90,6 @@ final readonly class ResolverContexto
 
         return [
             'usuario_id' => $usuario->id,
-            'es_cliente' => true,
             'requiere_seleccion' => $contextos->count() > 1,
             'contextos' => $contextos,
         ];

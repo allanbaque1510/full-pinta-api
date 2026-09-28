@@ -18,10 +18,10 @@ class ReporteTest extends TestCase
 
         $this->withHeader('Authorization', "Bearer {$usuario->createToken('t')->plainTextToken}")
             ->postJson('/api/v1/reportes', [
-                'tipo' => 'resena', 'objeto_id' => $objetoId, 'motivo' => 'spam', 'detalle' => 'Comentario repetido',
+                'objeto_type' => 'resena', 'objeto_id' => $objetoId, 'motivo' => 'spam', 'detalle' => 'Comentario repetido',
             ])
             ->assertCreated()
-            ->assertJsonPath('tipo', 'resena')
+            ->assertJsonPath('objeto_type', 'resena')
             ->assertJsonPath('objeto_id', $objetoId)
             ->assertJsonPath('reportante_id', $usuario->id)
             ->assertJsonPath('estado', 'pendiente');
@@ -33,10 +33,10 @@ class ReporteTest extends TestCase
 
         $this->withHeader('Authorization', "Bearer {$usuario->createToken('t')->plainTextToken}")
             ->postJson('/api/v1/reportes', [
-                'tipo' => 'otro_tipo_invalido', 'objeto_id' => (string) Str::uuid(), 'motivo' => 'spam',
+                'objeto_type' => 'otro_tipo_invalido', 'objeto_id' => (string) Str::uuid(), 'motivo' => 'spam',
             ])
             ->assertUnprocessable()
-            ->assertJsonValidationErrors('tipo');
+            ->assertJsonValidationErrors('objeto_type');
     }
 
     public function test_rechaza_un_motivo_fuera_del_enum(): void
@@ -45,7 +45,7 @@ class ReporteTest extends TestCase
 
         $this->withHeader('Authorization', "Bearer {$usuario->createToken('t')->plainTextToken}")
             ->postJson('/api/v1/reportes', [
-                'tipo' => 'local', 'objeto_id' => (string) Str::uuid(), 'motivo' => 'motivo_invalido',
+                'objeto_type' => 'local', 'objeto_id' => (string) Str::uuid(), 'motivo' => 'motivo_invalido',
             ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors('motivo');

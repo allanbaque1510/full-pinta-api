@@ -54,7 +54,7 @@ class RecalcularScoreRanking implements ShouldQueue
         $promedioGlobal = (float) (Resena::publicadas()->avg('puntaje_local') ?? 0);
         $ahora = CarbonImmutable::now();
 
-        Local::where('estado', 'activo')->each(function (Local $local) use ($promedioGlobal, $ahora) {
+        Local::where('estado', 'activo')->with('negocio')->each(function (Local $local) use ($promedioGlobal, $ahora) {
             $local->update(['score_ranking' => $this->calcularScore($local, $promedioGlobal, $ahora)]);
         });
     }
@@ -65,7 +65,7 @@ class RecalcularScoreRanking implements ShouldQueue
             + $this->actividad($local, $ahora)
             + $this->confiabilidad($local, $ahora)
             + $this->completitud($local) * self::PESO_COMPLETITUD
-            + ($local->verificado ? self::BONUS_VERIFICADO : 0);
+            + ($local->estaVerificado() ? self::BONUS_VERIFICADO : 0);
     }
 
     private function bayesiano(Local $local, float $promedioGlobal): float
@@ -110,7 +110,7 @@ class RecalcularScoreRanking implements ShouldQueue
     private function completitud(Local $local): float
     {
         $factores = [
-            $local->fotos()->exists(),
+            $local->imagenes()->exists(),
             $local->servicios()->where('activo', true)->exists(),
             $local->horarios()->exists(),
         ];

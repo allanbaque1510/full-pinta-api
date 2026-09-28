@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -34,6 +35,8 @@ class Usuario extends Authenticatable
     {
         return [
             'telefono_verificado' => 'boolean',
+            'email_verificado' => 'boolean',
+            'fecha_nacimiento' => 'date',
             'anonimizado_at' => 'immutable_datetime',
         ];
     }
@@ -62,6 +65,11 @@ class Usuario extends Authenticatable
     }
 
     // --- Como persona ----------------------------------------------------
+
+    public function fotoPerfil(): BelongsTo
+    {
+        return $this->belongsTo(Imagen::class, 'foto_perfil_id');
+    }
 
     public function perfilCliente(): HasOne
     {

@@ -25,7 +25,6 @@ class ProfesionalTest extends TestCase
             ])
             ->assertCreated()
             ->assertJsonPath('nombre', 'Kevin')
-            ->assertJsonPath('independiente', false)
             ->assertJsonPath('perfil_publico', true)
             ->assertJsonPath('traslado_min', 30);
 

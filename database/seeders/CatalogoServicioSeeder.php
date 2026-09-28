@@ -22,19 +22,24 @@ use Illuminate\Support\Str;
 class CatalogoServicioSeeder extends Seeder
 {
     /**
-     * vertical => [[nombre, categoria, duración base en minutos, tipo de recurso]]
+     * rubro => [[nombre, categoria, duración base en minutos, tipo de recurso]]
      *
      * @var array<string, array<int, array{string, string, int, string}>>
      */
     private const SERVICIOS = [
+        // 'ninguno' (revisión de base de datos, 2026-09-28): una barbería no
+        // depende de una silla física para agendar — el profesional es el
+        // recurso escaso, no el mueble. Modelarlo con 'silla' obligaba a un
+        // `recurso` por barbero solo para satisfacer el constraint, sin que
+        // nada lo necesitara de verdad.
         'barberia' => [
-            ['Corte clásico', 'corte', 30, 'silla'],
-            ['Corte fade', 'corte', 40, 'silla'],
-            ['Corte + barba', 'corte', 55, 'silla'],
-            ['Perfilado de barba', 'barba', 20, 'silla'],
-            ['Tinte de barba', 'color', 30, 'silla'],
-            ['Cejas', 'cejas', 10, 'silla'],
-            ['Mascarilla negra', 'tratamiento', 20, 'silla'],
+            ['Corte clásico', 'corte', 30, 'ninguno'],
+            ['Corte fade', 'corte', 40, 'ninguno'],
+            ['Corte + barba', 'corte', 55, 'ninguno'],
+            ['Perfilado de barba', 'barba', 20, 'ninguno'],
+            ['Tinte de barba', 'color', 30, 'ninguno'],
+            ['Cejas', 'cejas', 10, 'ninguno'],
+            ['Mascarilla negra', 'tratamiento', 20, 'ninguno'],
         ],
         'estetica' => [
             ['Corte de dama', 'corte', 45, 'silla'],
@@ -68,16 +73,16 @@ class CatalogoServicioSeeder extends Seeder
     {
         $tiposRecurso = TipoRecurso::all()->keyBy('codigo');
 
-        foreach (self::SERVICIOS as $vertical => $servicios) {
+        foreach (self::SERVICIOS as $rubro => $servicios) {
             $categorias = ServicioCategoria::query()
-                ->whereHas('vertical', fn ($q) => $q->where('codigo', $vertical))
+                ->whereHas('rubro', fn ($q) => $q->where('codigo', $rubro))
                 ->get()
                 ->keyBy('codigo');
 
             foreach ($servicios as [$nombre, $categoria, $duracion, $recurso]) {
-                // El slug lleva la vertical por delante para que no colisione
-                // cuando dos verticales tengan un servicio con el mismo nombre.
-                $slug = Str::slug("{$vertical} {$nombre}");
+                // El slug lleva el rubro por delante para que no colisione
+                // cuando dos rubros tengan un servicio con el mismo nombre.
+                $slug = Str::slug("{$rubro} {$nombre}");
 
                 CatalogoServicio::updateOrCreate(
                     ['slug' => $slug],

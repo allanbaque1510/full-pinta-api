@@ -27,8 +27,11 @@ return new class extends Migration
             $table->string('nombre');
             $table->string('alias')->nullable();        // "Kevin el Fade"
             $table->text('bio')->nullable();
-            $table->string('foto_url')->nullable();
-            $table->boolean('independiente')->default(false);   // renta silla vs empleado
+            // La FK no garantiza que la imagen apuntada sea del propio
+            // profesional — solo `ImagenService::establecerFotoPerfil()` debe
+            // escribir esta columna (misma transacción que la fila de `imagen`).
+            // Propia, independiente de `usuario.foto_perfil_id`.
+            $table->foreignUuid('foto_perfil_id')->nullable()->constrained('imagen')->nullOnDelete();
             $table->boolean('perfil_publico')->default(true);
 
             // Minutos mínimos de separación cuando dos citas consecutivas son en
@@ -39,16 +42,10 @@ return new class extends Migration
             $table->timestampsTz();
         });
 
-        // El portafolio importa más de lo que parece: la gente escoge barbero
+        // El portafolio (galería `imagen`, `objeto_type = 'profesional'`)
+        // reemplazó a `profesional_foto` — revisión de base de datos,
+        // 2026-09-28. Importa más de lo que parece: la gente escoge barbero
         // viendo cortes, no leyendo precios.
-        Schema::create('profesional_foto', function (Blueprint $table) {
-            $table->uuid('id')->primary();
-            $table->foreignUuid('profesional_id')->constrained('profesional')->cascadeOnDelete();
-            $table->string('url');
-            $table->smallInteger('orden')->default(0);
-
-            $table->index(['profesional_id', 'orden']);
-        });
 
         // El vínculo laboral, SIN horarios. Un profesional puede tener varias
         // asignaciones vigentes a la vez (día en un local, noche en otro).
@@ -69,6 +66,14 @@ return new class extends Migration
         Esquema::enum('asignacion', 'rol', ['barbero', 'estilista', 'manicurista', 'groomer', 'recepcion']);
         Esquema::enum('asignacion', 'modalidad', ['empleado', 'renta_silla', 'invitado']);
         Esquema::check('asignacion', 'comision_pct', 'comision_pct BETWEEN 0 AND 100');
+
+        // A lo sumo una asignación vigente (`hasta IS NULL`) por (local, profesional).
+        // Sin esto, dos asignaciones vigentes a la vez para el mismo par dejan a
+        // `AsignacionService`/`CitaService::comisionPct()` escogiendo una al azar
+        // (revisión de base de datos, 2026-09-28).
+        DB::statement(
+            'CREATE UNIQUE INDEX asignacion_una_vigente ON asignacion (local_id, profesional_id) WHERE hasta IS NULL'
+        );
 
         Schema::create('turno', function (Blueprint $table) {
             $table->uuid('id')->primary();
@@ -201,7 +206,6 @@ return new class extends Migration
         Schema::dropIfExists('turno_fecha');
         Schema::dropIfExists('turno');
         Schema::dropIfExists('asignacion');
-        Schema::dropIfExists('profesional_foto');
         Schema::dropIfExists('profesional');
     }
 };

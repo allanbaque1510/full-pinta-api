@@ -17,7 +17,7 @@ class ReporteFactory extends Factory
     public function definition(): array
     {
         return [
-            'tipo' => 'resena',
+            'objeto_type' => 'resena',
             'objeto_id' => (string) Str::uuid7(),
             'reportante_id' => Usuario::factory(),
             'motivo' => fake()->randomElement(['difamacion', 'contenido_inapropiado', 'falso', 'spam', 'otro']),

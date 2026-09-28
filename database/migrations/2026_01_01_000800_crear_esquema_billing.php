@@ -3,6 +3,7 @@
 use App\Support\Esquema;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
@@ -35,6 +36,13 @@ return new class extends Migration
         Esquema::enum('suscripcion', 'estado', ['activa', 'gracia', 'vencida', 'cancelada']);
         Esquema::check('suscripcion', 'precio_mensual', 'precio_mensual >= 0');
         Esquema::check('suscripcion', 'profesionales', 'profesionales >= 0');
+
+        // A lo sumo una suscripción 'activa' por negocio — sin esto,
+        // `SuscripcionService::activar()` podía dejar dos activas a la vez si
+        // se llamaba dos veces seguidas (revisión de base de datos, 2026-09-28).
+        DB::statement(
+            "CREATE UNIQUE INDEX suscripcion_una_activa ON suscripcion (negocio_id) WHERE estado = 'activa'"
+        );
 
         Schema::create('cobro', function (Blueprint $table) {
             $table->uuid('id')->primary();

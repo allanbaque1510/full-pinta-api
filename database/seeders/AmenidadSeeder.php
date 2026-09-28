@@ -10,7 +10,7 @@ use Illuminate\Database\Seeder;
  * Catálogo de amenidades (§4.4).
  *
  * Distinción crítica: "acepta mascotas en sala" es una amenidad; "baña perros"
- * es un servicio de la vertical mascotas. Confundirlas lleva clientes con su
+ * es un servicio del rubro mascotas. Confundirlas lleva clientes con su
  * perro a un local que solo lo deja entrar.
  */
 class AmenidadSeeder extends Seeder
@@ -46,12 +46,6 @@ class AmenidadSeeder extends Seeder
             'bano_accesible' => ['Baño accesible', 'accessibility'],
             'parqueo' => ['Parqueo', 'square-parking'],
             'parqueo_gratis' => ['Parqueo gratis', 'square-parking'],
-        ],
-        'pago' => [
-            'tarjeta' => ['Tarjeta', 'credit-card'],
-            'transferencia' => ['Transferencia', 'arrow-left-right'],
-            'payphone' => ['Payphone', 'smartphone'],
-            'efectivo' => ['Efectivo', 'banknote'],
         ],
         'politica' => [
             'atiende_mujeres' => ['Atiende mujeres', 'users'],

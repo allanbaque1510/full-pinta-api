@@ -17,7 +17,7 @@ class CrearReporteRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'tipo' => ['required', Rule::in(['resena', 'foto', 'local', 'profesional'])],
+            'objeto_type' => ['required', Rule::in(['resena', 'foto', 'local', 'profesional'])],
             // Polimórfico sin FK a propósito (§4.8): no se valida que exista,
             // solo el formato.
             'objeto_id' => ['required', 'uuid'],

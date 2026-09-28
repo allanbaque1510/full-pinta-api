@@ -4,6 +4,7 @@ namespace App\Modules\Identity\Application;
 
 use App\Models\Usuario;
 use App\Modules\Identity\Application\Contracts\VerificadorTokenGoogle;
+use App\Support\ImagenService;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\NewAccessToken;
@@ -29,6 +30,7 @@ final readonly class IniciarSesionConGoogle
         private VerificadorTokenGoogle $verificador,
         private OtorgarConsentimiento $otorgarConsentimiento,
         private LimitarSesionesActivas $limitarSesiones,
+        private ImagenService $imagenes,
     ) {}
 
     /**
@@ -68,11 +70,14 @@ final readonly class IniciarSesionConGoogle
             'google_id' => $claims['sub'],
             'email' => $claims['email'],
             'nombre' => $claims['name'] !== '' ? $claims['name'] : 'Usuario de Google',
-            'foto_url' => $claims['picture'],
             // Igual que OTP: no se autentica por contraseña, este hash solo
             // saca a la fila del estado "cliente sombra sin reclamar".
             'password_hash' => Hash::make(Str::random(40)),
         ]);
+
+        if ($claims['picture'] !== null) {
+            $this->imagenes->establecerFotoPerfil($usuario, 'usuario', $claims['picture']);
+        }
 
         ($this->otorgarConsentimiento)($usuario, 'operacion_servicio', origen: 'app');
 

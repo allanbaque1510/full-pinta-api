@@ -5,11 +5,11 @@
 //
 // Ver `docs/api-referencia.md` para el contrato completo request/response.
 
+use App\Http\Controllers\ImagenController;
 use App\Modules\Staffing\Http\Controllers\AsignacionController;
 use App\Modules\Staffing\Http\Controllers\ExcepcionController;
 use App\Modules\Staffing\Http\Controllers\HabilidadController;
 use App\Modules\Staffing\Http\Controllers\ProfesionalController;
-use App\Modules\Staffing\Http\Controllers\ProfesionalFotoController;
 use App\Modules\Staffing\Http\Controllers\RecursoController;
 use App\Modules\Staffing\Http\Controllers\TurnoController;
 use App\Modules\Staffing\Http\Controllers\TurnoFechaController;
@@ -27,14 +27,13 @@ Route::middleware('auth:sanctum')->group(function () {
         ->shallow()
         ->except(['destroy']);
 
-    // Sin `shallow()`: `locales.fotos` (Directory) ya usa la ruta plana
-    // `fotos/{foto}` — si esta también fuera shallow, las dos colisionarían
-    // en la misma URI y una pisaría a la otra silenciosamente. "Foto" es
-    // genérico y se repite entre módulos; esta se queda anidada bajo su
-    // padre en vez de aplanarse.
-    Route::apiResource('profesionales.fotos', ProfesionalFotoController::class)
-        ->parameters(['profesionales' => 'profesional'])
-        ->except(['show']);
+    // Galería polimórfica compartida con Directory (§4.4, revisión de base de
+    // datos, 2026-09-28): `update`/`destroy` (`imagenes/{imagen}`) ya se
+    // registran una sola vez desde `Directory/routes.php` — declararlas de
+    // nuevo aquí generaría la misma URI dos veces y una pisaría a la otra en
+    // silencio.
+    Route::get('profesionales/{profesional}/imagenes', [ImagenController::class, 'indexProfesional']);
+    Route::post('profesionales/{profesional}/imagenes', [ImagenController::class, 'storeProfesional']);
 
     // Sin `destroy`: se "termina" con fecha (`hasta`), no se borra.
     // `asignaciones` → Laravel arma `{asignacione}` en singular (regla de

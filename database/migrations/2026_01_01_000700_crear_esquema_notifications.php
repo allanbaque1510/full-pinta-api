@@ -85,7 +85,14 @@ return new class extends Migration
             $table->index(['usuario_id', 'created_at']);
         });
 
-        Esquema::enum('notificacion', 'canal', ['push', 'whatsapp', 'sms', 'websocket']);
+        // 'email' agregado en la revisión de base de datos, 2026-09-29 —
+        // necesario para "suscripción por vencer → Push + email" (§11.2). El
+        // envío real todavía no tiene productor propio en este módulo (el
+        // canal se usa hoy solo desde Identity, para códigos de verificación
+        // y recuperación de contraseña) — se agrega el valor porque el
+        // vocabulario de canales es compartido y no tiene sentido que la
+        // tabla lo excluya mientras se construye el productor.
+        Esquema::enum('notificacion', 'canal', ['push', 'whatsapp', 'sms', 'websocket', 'email']);
         Esquema::enum('notificacion', 'estado', [
             'programada', 'enviada', 'entregada', 'leida', 'fallida', 'cancelada',
         ]);

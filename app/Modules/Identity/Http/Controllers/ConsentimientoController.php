@@ -4,9 +4,11 @@ namespace App\Modules\Identity\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Modules\Identity\Application\ActualizarConsentimiento;
+use App\Modules\Identity\Application\FinalidadConsentimientoService;
 use App\Modules\Identity\Application\ListarConsentimientos;
 use App\Modules\Identity\Http\Requests\ActualizarConsentimientoRequest;
 use App\Modules\Identity\Http\Resources\ConsentimientoResource;
+use App\Modules\Identity\Http\Resources\FinalidadConsentimientoResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -18,6 +20,11 @@ use Illuminate\Http\Request;
  */
 class ConsentimientoController extends Controller
 {
+    public function finalidades(FinalidadConsentimientoService $finalidades): JsonResponse
+    {
+        return $this->ejecutar(fn () => FinalidadConsentimientoResource::collection($finalidades->listar()));
+    }
+
     public function index(Request $request, ListarConsentimientos $listar): JsonResponse
     {
         return $this->ejecutar(fn () => ConsentimientoResource::collection($listar($request->user())));

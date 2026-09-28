@@ -19,14 +19,14 @@ class CatalogoController extends Controller
     public function categorias(Request $request, ServicioCategoriaService $categorias): JsonResponse
     {
         return $this->ejecutar(fn () => ServicioCategoriaResource::collection(
-            $categorias->listar($request->query('vertical')),
+            $categorias->listar($request->query('rubro')),
         ));
     }
 
     public function servicios(Request $request, CatalogoServicioService $servicios): JsonResponse
     {
         return $this->ejecutar(fn () => CatalogoServicioResource::collection(
-            $servicios->listar($request->query('vertical'), $request->query('categoria')),
+            $servicios->listar($request->query('rubro'), $request->query('categoria')),
         ));
     }
 }

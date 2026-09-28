@@ -3,8 +3,9 @@
 namespace App\Modules\Catalog\Application;
 
 use App\Models\Local;
+use App\Models\Rubro;
 use App\Models\SolicitudCatalogo;
-use App\Models\Vertical;
+use App\Models\Usuario;
 use Illuminate\Database\Eloquent\Collection;
 
 /**
@@ -19,20 +20,21 @@ final readonly class SolicitudCatalogoService
 {
     public function listar(Local $local): Collection
     {
-        return $local->solicitudes()->with('vertical')->get();
+        return $local->solicitudes()->with('rubro')->get();
     }
 
     /**
-     * @param  array{vertical: string, nombre_propuesto: string, descripcion?: ?string}  $datos  `vertical` es el código, no el id.
+     * @param  array{rubro: string, nombre_propuesto: string, descripcion?: ?string}  $datos  `rubro` es el código, no el id.
      */
-    public function crear(Local $local, array $datos): SolicitudCatalogo
+    public function crear(Local $local, Usuario $solicitante, array $datos): SolicitudCatalogo
     {
-        $verticalId = Vertical::where('codigo', $datos['vertical'])->value('id');
-        unset($datos['vertical']);
+        $rubroId = Rubro::where('codigo', $datos['rubro'])->value('id');
+        unset($datos['rubro']);
 
         return $local->solicitudes()->create([
             ...$datos,
-            'vertical_id' => $verticalId,
+            'solicitante_id' => $solicitante->id,
+            'rubro_id' => $rubroId,
             'estado' => 'pendiente',
         ]);
     }

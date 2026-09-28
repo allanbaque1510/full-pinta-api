@@ -138,7 +138,13 @@ php artisan test --filter=Nombre    # un test
 vendor/bin/pint                     # formateo
 php artisan queue:work --queue=critica,notificaciones,proyecciones,batch
 php artisan migrate:fresh --seed    # rehacer la base local
+
+php artisan ide-helper:generate            # autocompletado de facades (dev-only)
+php artisan ide-helper:models --nowrite    # docblocks de modelos, en archivo aparte
+php artisan ide-helper:meta                # metadata para PhpStorm
 ```
+
+Lista completa y comentada (instalación, datos de prueba, servir el proyecto, troubleshooting) en [`PUESTA-EN-MARCHA.md`](PUESTA-EN-MARCHA.md).
 
 ### Tests
 

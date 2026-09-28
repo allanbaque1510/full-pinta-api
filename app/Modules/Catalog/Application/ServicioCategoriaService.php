@@ -13,16 +13,16 @@ use Illuminate\Database\Eloquent\Collection;
 final readonly class ServicioCategoriaService
 {
     /**
-     * @param  string|null  $verticalCodigo  código de `vertical` (p.ej. "barberia"), no su id.
+     * @param  string|null  $rubroCodigo  código de `rubro` (p.ej. "barberia"), no su id.
      */
-    public function listar(?string $verticalCodigo = null): Collection
+    public function listar(?string $rubroCodigo = null): Collection
     {
         return ServicioCategoria::query()
-            ->join('vertical', 'vertical.id', '=', 'servicio_categoria.vertical_id')
-            ->with('vertical')
-            ->when($verticalCodigo, fn ($q) => $q->where('vertical.codigo', $verticalCodigo))
+            ->join('rubro', 'rubro.id', '=', 'servicio_categoria.rubro_id')
+            ->with('rubro')
+            ->when($rubroCodigo, fn ($q) => $q->where('rubro.codigo', $rubroCodigo))
             ->where('servicio_categoria.activo', true)
-            ->orderBy('vertical.codigo')
+            ->orderBy('rubro.codigo')
             ->orderBy('servicio_categoria.orden')
             ->select('servicio_categoria.*')
             ->get();

@@ -32,9 +32,24 @@ class Mascota extends Model
         return $this->belongsTo(Usuario::class, 'usuario_id');
     }
 
+    public function especie(): BelongsTo
+    {
+        return $this->belongsTo(EspecieMascota::class, 'especie_id');
+    }
+
+    public function raza(): BelongsTo
+    {
+        return $this->belongsTo(RazaMascota::class, 'raza_id');
+    }
+
     public function tamano(): BelongsTo
     {
         return $this->belongsTo(TamanoMascota::class, 'tamano_id');
+    }
+
+    public function fotoPerfil(): BelongsTo
+    {
+        return $this->belongsTo(Imagen::class, 'foto_perfil_id');
     }
 
     public function citas(): HasMany

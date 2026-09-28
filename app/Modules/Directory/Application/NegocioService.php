@@ -31,6 +31,10 @@ final readonly class NegocioService
             $negocio = Negocio::create([
                 'nombre_marca' => $nombreMarca,
                 'ruc' => $ruc,
+                // DEFAULT en Postgres, no en PHP — ver skill `migracion`: sin
+                // esto, el negocio recién creado devuelve `null` en vez de
+                // `false` hasta un `fresh()`.
+                'ruc_verificado' => false,
                 'propietario_id' => $propietario->id,
                 'plan_id' => Plan::where('codigo', 'free')->value('id'),
             ]);
@@ -43,7 +47,7 @@ final readonly class NegocioService
                 'desde' => now()->toDateString(),
             ]);
 
-            return $negocio->load('plan');
+            return $negocio->load('plan', 'fotoPerfil', 'portadaImagen');
         });
     }
 
@@ -51,6 +55,6 @@ final readonly class NegocioService
     {
         $negocio->update($datos);
 
-        return $negocio->load('plan');
+        return $negocio->load('plan', 'fotoPerfil', 'portadaImagen');
     }
 }

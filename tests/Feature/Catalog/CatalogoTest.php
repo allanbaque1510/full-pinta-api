@@ -22,13 +22,13 @@ class CatalogoTest extends TestCase
             ->assertJsonCount(17);
     }
 
-    public function test_las_categorias_se_filtran_por_vertical(): void
+    public function test_las_categorias_se_filtran_por_rubro(): void
     {
         $this->seed();
 
-        $respuesta = $this->getJson('/api/v1/catalogo/categorias?vertical=barberia')->assertOk();
+        $respuesta = $this->getJson('/api/v1/catalogo/categorias?rubro=barberia')->assertOk();
 
-        $this->assertTrue(collect($respuesta->json())->every(fn ($c) => $c['vertical'] === 'barberia'));
+        $this->assertTrue(collect($respuesta->json())->every(fn ($c) => $c['rubro'] === 'barberia'));
     }
 
     public function test_los_servicios_del_catalogo_son_publicos(): void
@@ -40,14 +40,14 @@ class CatalogoTest extends TestCase
             ->assertJsonCount(25);
     }
 
-    public function test_los_servicios_se_filtran_por_vertical_y_categoria(): void
+    public function test_los_servicios_se_filtran_por_rubro_y_categoria(): void
     {
         $this->seed();
 
-        $respuesta = $this->getJson('/api/v1/catalogo/servicios?vertical=barberia&categoria=barba')->assertOk();
+        $respuesta = $this->getJson('/api/v1/catalogo/servicios?rubro=barberia&categoria=barba')->assertOk();
 
         $this->assertTrue(collect($respuesta->json())->every(
-            fn ($s) => $s['vertical'] === 'barberia' && $s['categoria_codigo'] === 'barba',
+            fn ($s) => $s['rubro'] === 'barberia' && $s['categoria_codigo'] === 'barba',
         ));
     }
 
@@ -57,7 +57,7 @@ class CatalogoTest extends TestCase
 
         $this->getJson('/api/v1/amenidades')
             ->assertOk()
-            ->assertJsonCount(27);
+            ->assertJsonCount(23);
     }
 
     public function test_las_amenidades_se_filtran_por_categoria(): void

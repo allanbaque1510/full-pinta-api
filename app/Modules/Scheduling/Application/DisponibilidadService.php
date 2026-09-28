@@ -2,10 +2,12 @@
 
 namespace App\Modules\Scheduling\Application;
 
+use App\Models\Asignacion;
 use App\Models\Cita;
 use App\Models\Excepcion;
 use App\Models\Habilidad;
 use App\Models\Local;
+use App\Models\Mascota;
 use App\Models\Profesional;
 use App\Models\Recurso;
 use App\Models\ServicioLocal;
@@ -39,18 +41,22 @@ final readonly class DisponibilidadService
 
     private const TTL_CACHE_SEGUNDOS = 900;
 
+    public function __construct(private ResolucionPrecioServicio $precios) {}
+
     /**
      * @param  array<int,string>  $servicioLocalIds
      */
-    public function slots(Local $local, CarbonImmutable $fecha, array $servicioLocalIds, ?string $profesionalId = null): Collection
+    public function slots(Local $local, CarbonImmutable $fecha, array $servicioLocalIds, ?string $profesionalId = null, ?string $mascotaId = null): Collection
     {
-        $servicios = ServicioLocal::with('catalogoServicio.tipoRecurso')->whereIn('id', $servicioLocalIds)->get();
+        $servicios = ServicioLocal::with(['catalogoServicio.tipoRecurso', 'tamanos'])->whereIn('id', $servicioLocalIds)->get();
 
         if ($servicios->count() !== count($servicioLocalIds)) {
             throw_validacion('Alguno de los servicios pedidos no existe o no está activo.', 'servicios');
         }
 
-        $duracionTotal = (int) $servicios->sum('duracion_min') + (int) $servicios->max('buffer_min');
+        $tamanoId = $mascotaId !== null ? Mascota::find($mascotaId)?->tamano_id : null;
+        $duracionTotal = (int) $servicios->sum(fn (ServicioLocal $s) => $this->precios->resolver($s, $tamanoId)['duracion_min'])
+            + (int) $servicios->max('buffer_min');
 
         // Supuesto documentado: todos los servicios de una misma cita comparten
         // el mismo tipo de recurso requerido (o ninguno). La especificación no
@@ -234,8 +240,26 @@ final readonly class DisponibilidadService
      *
      * @return list<array{0:CarbonImmutable,1:CarbonImmutable}>
      */
+    /**
+     * Filtro 2 del §5.1: asignación vigente en ese local Y turno vigente ese
+     * día — dos condiciones, no una. Sin este chequeo, un profesional cuya
+     * `asignacion` ya terminó (§4.6) seguiría ofreciendo horarios si nadie
+     * cerró también sus `turno` a mano (revisión de base de datos,
+     * 2026-09-28; ahora `AsignacionService::terminar()` los cierra siempre,
+     * pero este chequeo es la garantía real, no depender de que el otro lado
+     * nunca falle).
+     */
     private function ventanasTurno(Local $local, Profesional $profesional, CarbonImmutable $fecha, int $diaSemana): array
     {
+        $tieneAsignacionVigente = Asignacion::where('local_id', $local->id)
+            ->where('profesional_id', $profesional->id)
+            ->vigenteEn($fecha)
+            ->exists();
+
+        if (! $tieneAsignacionVigente) {
+            return [];
+        }
+
         $recurrentes = Turno::where('profesional_id', $profesional->id)
             ->where('local_id', $local->id)
             ->where('dia_semana', $diaSemana)

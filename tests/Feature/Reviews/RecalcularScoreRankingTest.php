@@ -57,7 +57,10 @@ class RecalcularScoreRankingTest extends TestCase
     public function test_verificado_suma_un_bono_por_encima_de_uno_no_verificado(): void
     {
         $sinVerificar = Local::factory()->create(['verificado' => false]);
-        $verificado = Local::factory()->create(['verificado' => true]);
+        // "Verificado" exige también el RUC del negocio dueño (§4.4,
+        // revisión de base de datos, 2026-09-28) — el estado de factory ya
+        // fuerza las dos cosas.
+        $verificado = Local::factory()->verificado()->create();
 
         app(RecalcularScoreRanking::class)->handle();
 

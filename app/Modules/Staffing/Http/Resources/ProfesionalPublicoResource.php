@@ -2,6 +2,7 @@
 
 namespace App\Modules\Staffing\Http\Resources;
 
+use App\Http\Resources\ImagenResource;
 use App\Models\Profesional;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -22,8 +23,8 @@ class ProfesionalPublicoResource extends JsonResource
             'nombre' => $this->nombre,
             'alias' => $this->alias,
             'bio' => $this->bio,
-            'foto_url' => $this->foto_url,
-            'fotos' => ProfesionalFotoResource::collection($this->whenLoaded('fotos')),
+            'foto_url' => $this->fotoPerfil?->url,
+            'imagenes' => ImagenResource::collection($this->whenLoaded('imagenes')),
             'servicios' => HabilidadResource::collection($this->whenLoaded('habilidades')),
             'resenas' => [
                 'promedio' => $this->whenLoaded('resenas', fn () => round($this->resenas->avg('puntaje_profesional') ?? 0, 1)),

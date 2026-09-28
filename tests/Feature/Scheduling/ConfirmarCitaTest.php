@@ -22,7 +22,7 @@ class ConfirmarCitaTest extends TestCase
             ->assertOk()
             ->assertJsonPath('estado', 'confirmada');
 
-        $this->assertDatabaseHas('cita_evento', [
+        $this->assertDatabaseHas('cita_bitacora', [
             'cita_id' => $cita->id, 'estado_anterior' => 'reservada', 'estado_nuevo' => 'confirmada', 'actor_rol' => 'cliente',
         ]);
     }

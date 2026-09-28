@@ -3,6 +3,7 @@
 namespace App\Modules\Identity\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class ActualizarConsentimientoRequest extends FormRequest
 {
@@ -17,7 +18,7 @@ class ActualizarConsentimientoRequest extends FormRequest
             'finalidad' => [
                 'required',
                 'string',
-                'in:operacion_servicio,comunicaciones_transaccionales,marketing,transferencia_internacional',
+                Rule::exists('finalidad_consentimiento', 'codigo')->where('activo', true),
             ],
             'otorgado' => ['required', 'boolean'],
         ];

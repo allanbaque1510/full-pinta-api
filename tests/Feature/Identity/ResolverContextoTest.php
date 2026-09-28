@@ -27,7 +27,6 @@ class ResolverContextoTest extends TestCase
         $this->withHeader('Authorization', "Bearer {$token}")
             ->getJson('/api/v1/auth/contexto')
             ->assertOk()
-            ->assertJsonPath('es_cliente', true)
             ->assertJsonPath('requiere_seleccion', false)
             ->assertJsonPath('contextos', []);
     }

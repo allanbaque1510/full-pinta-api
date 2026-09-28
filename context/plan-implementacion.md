@@ -279,6 +279,7 @@ No dependen del código y conviene empezarlos ya:
 - [ ] APNs Auth Key de Apple
 - [ ] API key de Google Maps
 - [ ] Cuenta de Sentry
+- [ ] **Proveedor de correo saliente** (SES, Postmark, Mailgun...) — el puerto `EnviadorCodigoEmail` ya existe (mismo patrón que `EnviadorPush`/`EnviadorWhatsApp`/`EmisorComprobanteSri`: `Log`/`Fake` provisionales, 2026-09-29), y con él ya funcionan de punta a punta la verificación de propiedad del email y la recuperación de contraseña por correo. Falta solo conectar el proveedor real (cambiar el binding en `IdentityServiceProvider`). Sigue pendiente, aparte, un `EnviadorEmail` **genérico y con plantillas** (mismo patrón que `EnviadorWhatsApp`/`PlantillaWhatsapp`) para notificaciones no transaccionales — el único caso real hoy es "suscripción por vencer → Push + email" (§11.2); el enum `notificacion.canal` ya incluye `'email'`, pero ese productor no está construido
 
 ---
 

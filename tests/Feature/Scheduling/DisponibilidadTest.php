@@ -304,6 +304,35 @@ class DisponibilidadTest extends TestCase
         $this->assertFalse($slots->contains(fn ($s) => $s->inicio->equalTo($fecha->setTime(12, 0))));
     }
 
+    /**
+     * Revisión de base de datos 2026-09-28: el motor solo verificaba `Turno`
+     * vigente, nunca `Asignacion` vigente — el §5.1 filtro 2 exige ambas. Un
+     * profesional cuya asignación terminó no debe seguir ofreciendo horarios
+     * en ese local, aunque alguien olvide cerrar también su `turno`.
+     */
+    public function test_un_profesional_sin_asignacion_vigente_no_ofrece_slots_aunque_su_turno_siga_abierto(): void
+    {
+        $fecha = CarbonImmutable::now()->next(2);
+        $local = Local::factory()->sinLeadTime()->create();
+        HorarioLocal::factory()->create(['local_id' => $local->id, 'dia_semana' => 2, 'abre' => '09:00', 'cierra' => '19:00']);
+        $profesional = Profesional::factory()->create();
+        $asignacion = Asignacion::factory()->create(['local_id' => $local->id, 'profesional_id' => $profesional->id]);
+        Turno::factory()->para($asignacion)->horario('09:00', '19:00', 2)->create();
+        $servicioLocal = $this->servicioSinRecurso($local, 30);
+        Habilidad::factory()->create(['profesional_id' => $profesional->id, 'servicio_local_id' => $servicioLocal->id]);
+
+        $slotsAntes = $this->servicio()->slots($local, $fecha->startOfDay(), [$servicioLocal->id]);
+        $this->assertTrue($slotsAntes->contains(fn ($s) => $s->inicio->equalTo($fecha->setTime(9, 0))));
+
+        // El turno queda vigente a propósito (`vigente_hasta` sin tocar) para
+        // probar que el chequeo de asignación por sí solo ya basta.
+        $asignacion->update(['hasta' => $fecha->subDay()->toDateString()]);
+        Cache::flush(); // `ventanasLibres()` cachea por (local, profesional, fecha) — sin esto, leería el resultado de antes.
+
+        $slotsDespues = $this->servicio()->slots($local, $fecha->startOfDay(), [$servicioLocal->id]);
+        $this->assertTrue($slotsDespues->isEmpty());
+    }
+
     protected function tearDown(): void
     {
         Cache::flush();

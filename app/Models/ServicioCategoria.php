@@ -11,8 +11,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * ServicioCategoria (`servicio_categoria`).
  *
- * `codigo` es único solo junto a `vertical_id`, nunca por sí solo: el mismo
- * código existe en verticales distintas — `corte` es categoría de barbería y
+ * `codigo` es único solo junto a `rubro_id`, nunca por sí solo: el mismo
+ * código existe en rubros distintos — `corte` es categoría de barbería y
  * también de estética, y no son la misma cosa (§4.5).
  */
 class ServicioCategoria extends Model
@@ -33,9 +33,9 @@ class ServicioCategoria extends Model
         ];
     }
 
-    public function vertical(): BelongsTo
+    public function rubro(): BelongsTo
     {
-        return $this->belongsTo(Vertical::class, 'vertical_id');
+        return $this->belongsTo(Rubro::class, 'rubro_id');
     }
 
     public function servicios(): HasMany

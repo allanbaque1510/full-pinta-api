@@ -20,26 +20,28 @@ return new class extends Migration
         // Tabla de parámetros: barbería, estética, uñas, mascotas. Referenciada
         // por id desde `servicio_categoria`, `catalogo_servicio` y
         // `solicitud_catalogo` — nunca repetida como varchar suelto en cada una.
-        Schema::create('vertical', function (Blueprint $table) {
+        // Se llamó `vertical` hasta el 2026-09-28 — renombrado por preferencia
+        // de nomenclatura, no por corrección de un error.
+        Schema::create('rubro', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->string('codigo', 20)->unique();
             $table->string('nombre');
             $table->boolean('activo')->default(true);
         });
 
-        // El mismo código existe en verticales distintas — `corte` es categoría
+        // El mismo código existe en rubros distintos — `corte` es categoría
         // de barbería y también de estética, y no son la misma cosa — por eso
-        // `codigo` es único solo junto a `vertical_id`, no por sí mismo.
+        // `codigo` es único solo junto a `rubro_id`, no por sí mismo.
         Schema::create('servicio_categoria', function (Blueprint $table) {
             $table->uuid('id')->primary();
-            $table->foreignUuid('vertical_id')->constrained('vertical')->restrictOnDelete();
+            $table->foreignUuid('rubro_id')->constrained('rubro')->restrictOnDelete();
             $table->string('codigo', 40);
             $table->string('nombre');
             $table->string('icono', 60)->nullable();
             $table->smallInteger('orden')->default(0);
             $table->boolean('activo')->default(true);
 
-            $table->unique(['vertical_id', 'codigo']);
+            $table->unique(['rubro_id', 'codigo']);
         });
 
         // Tabla de parámetros: referenciada por id desde `catalogo_servicio`
@@ -59,10 +61,10 @@ return new class extends Migration
 
         Schema::create('catalogo_servicio', function (Blueprint $table) {
             $table->uuid('id')->primary();
-            // Sin `vertical_id` propio: se deriva de `categoria_id` ->
-            // `servicio_categoria.vertical_id`. Guardarlo aparte duplicaría el
+            // Sin `rubro_id` propio: se deriva de `categoria_id` ->
+            // `servicio_categoria.rubro_id`. Guardarlo aparte duplicaría el
             // dato y podría desincronizarse (un servicio con categoría de
-            // barbería pero vertical "estetica", por ejemplo).
+            // barbería pero rubro "estetica", por ejemplo).
             $table->foreignUuid('categoria_id')->constrained('servicio_categoria')->restrictOnDelete();
             $table->string('nombre');                 // "Corte fade"
             $table->string('slug', 120)->unique();
@@ -112,7 +114,11 @@ return new class extends Migration
         Schema::create('solicitud_catalogo', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->foreignUuid('local_id')->constrained('local')->cascadeOnDelete();
-            $table->foreignUuid('vertical_id')->constrained('vertical')->restrictOnDelete();
+            // Quién la envió, de los posibles miembros del local (revisión de
+            // base de datos, 2026-09-28) — mismo criterio de nombre que
+            // `reporte.reportante_id`.
+            $table->foreignUuid('solicitante_id')->constrained('usuario')->restrictOnDelete();
+            $table->foreignUuid('rubro_id')->constrained('rubro')->restrictOnDelete();
             $table->string('nombre_propuesto');
             $table->text('descripcion')->nullable();
             $table->string('estado', 20)->default('pendiente');
@@ -132,8 +138,10 @@ return new class extends Migration
             $table->uuid('id')->primary();
             $table->foreignUuid('local_id')->constrained('local')->cascadeOnDelete();
             $table->string('nombre');              // pomada, cera, shampoo
+            $table->text('descripcion')->nullable();
             $table->decimal('precio', 10, 2);
             $table->decimal('comision_pct', 5, 2)->default(0);
+            $table->foreignUuid('foto_id')->nullable()->constrained('imagen')->nullOnDelete();
             $table->boolean('activo')->default(true);
             $table->timestampsTz();
 
@@ -153,6 +161,6 @@ return new class extends Migration
         Schema::dropIfExists('catalogo_servicio');
         Schema::dropIfExists('tipo_recurso');
         Schema::dropIfExists('servicio_categoria');
-        Schema::dropIfExists('vertical');
+        Schema::dropIfExists('rubro');
     }
 };

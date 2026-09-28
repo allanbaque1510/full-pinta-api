@@ -17,8 +17,10 @@ class ProductoResource extends JsonResource
             'id' => $this->id,
             'local_id' => $this->local_id,
             'nombre' => $this->nombre,
+            'descripcion' => $this->descripcion,
             'precio' => $this->precio,
             'comision_pct' => $this->comision_pct,
+            'foto_url' => $this->foto?->url,
             'activo' => $this->activo,
         ];
     }

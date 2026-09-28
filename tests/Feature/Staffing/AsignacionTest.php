@@ -46,6 +46,26 @@ class AsignacionTest extends TestCase
         $this->assertDatabaseHas('asignacion', ['id' => $asignacion->id]);
     }
 
+    /**
+     * Revisión de base de datos 2026-09-28: sin esto, dos asignaciones
+     * vigentes para el mismo (local, profesional) dejaban a
+     * `CitaService::comisionPct()` escogiendo una comisión al azar.
+     */
+    public function test_no_se_puede_tener_dos_asignaciones_vigentes_para_el_mismo_local_y_profesional(): void
+    {
+        [, $token, , $local] = $this->propietarioConLocal();
+        $kevin = Profesional::factory()->create();
+        Asignacion::factory()->create(['local_id' => $local->id, 'profesional_id' => $kevin->id]);
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson("/api/v1/locales/{$local->id}/asignaciones", [
+                'profesional_id' => $kevin->id, 'rol' => 'barbero', 'modalidad' => 'empleado', 'comision_pct' => 50,
+            ])
+            ->assertUnprocessable();
+
+        $this->assertSame(1, $kevin->asignaciones()->vigente()->count());
+    }
+
     public function test_un_recepcionista_no_puede_sumar_profesionales(): void
     {
         [, , $negocio, $local] = $this->propietarioConLocal();

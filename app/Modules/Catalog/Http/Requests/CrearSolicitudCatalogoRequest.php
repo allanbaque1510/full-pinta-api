@@ -15,7 +15,7 @@ class CrearSolicitudCatalogoRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'vertical' => ['required', Rule::exists('vertical', 'codigo')->where('activo', true)],
+            'rubro' => ['required', Rule::exists('rubro', 'codigo')->where('activo', true)],
             'nombre_propuesto' => ['required', 'string', 'max:255'],
             'descripcion' => ['nullable', 'string'],
         ];

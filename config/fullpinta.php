@@ -4,20 +4,6 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Versión del documento de términos y consentimiento
-    |--------------------------------------------------------------------------
-    |
-    | El consentimiento se registra por finalidad, con versión y timestamp, y
-    | debe poder probarse (§13.1). Cuando el documento legal cambie, sube este
-    | valor — no se sobreescribe el consentimiento ya otorgado con la versión
-    | anterior, se registra una fila nueva.
-    |
-    */
-
-    'version_terminos' => env('FULLPINTA_VERSION_TERMINOS', '2026-01'),
-
-    /*
-    |--------------------------------------------------------------------------
     | OTP
     |--------------------------------------------------------------------------
     |
@@ -63,5 +49,21 @@ return [
     */
 
     'max_dispositivos_activos' => env('FULLPINTA_MAX_DISPOSITIVOS_ACTIVOS', 2),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Vigencia de la suscripción
+    |--------------------------------------------------------------------------
+    |
+    | Margen de gracia confirmado con el usuario: 10 días desde que se cumple
+    | el período pagado y no hay confirmación de pago, antes de bajar el
+    | negocio a Free. Decisión de implementación del equipo técnico, no varía
+    | por plan ni por negocio — mismo criterio que `otp`/`login`.
+    |
+    */
+
+    'suscripcion' => [
+        'dias_gracia' => env('FULLPINTA_DIAS_GRACIA_SUSCRIPCION', 10),
+    ],
 
 ];

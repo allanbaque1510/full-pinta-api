@@ -27,7 +27,7 @@ class ProfesionalController extends Controller
     {
         return $this->ejecutar(fn () => ProfesionalResource::make($profesionales->crearConAsignacion(
             $local,
-            $request->safe()->only(['nombre', 'alias', 'bio', 'foto_url', 'independiente', 'perfil_publico', 'traslado_min']),
+            $request->safe()->only(['nombre', 'alias', 'bio', 'foto_url', 'perfil_publico', 'traslado_min']),
             $request->safe()->only(['rol', 'modalidad', 'comision_pct', 'desde']),
         )), 201);
     }
@@ -37,7 +37,7 @@ class ProfesionalController extends Controller
         return $this->ejecutar(function () use ($profesional) {
             $this->authorize('ver', $profesional);
 
-            return ProfesionalResource::make($profesional);
+            return ProfesionalResource::make($profesional->loadMissing('fotoPerfil'));
         });
     }
 

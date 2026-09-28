@@ -2,8 +2,11 @@
 
 namespace App\Modules\Scheduling\Listeners;
 
+use App\Models\Cita;
 use App\Models\Local;
 use App\Models\Profesional;
+use App\Modules\Scheduling\Events\CitaCancelada;
+use App\Modules\Scheduling\Events\CitaCreada;
 use App\Modules\Scheduling\Jobs\ReconstruirDisponibilidadDia;
 use App\Modules\Staffing\Events\ExcepcionModificada;
 use App\Modules\Staffing\Events\TurnoModificado;
@@ -79,6 +82,51 @@ class InvalidarCacheDisponibilidad
 
         // Solo `recurso_id`: no afecta esta caché — la disponibilidad de un
         // recurso se consulta fresca, no está cacheada (ver DisponibilidadService).
+    }
+
+    /**
+     * Revisión de base de datos 2026-09-28: `disponibilidad_dia` (la
+     * proyección que consulta la búsqueda para "disponible hoy/mañana") nunca
+     * se recalculaba al crear o cancelar una cita — solo reaccionaba a
+     * cambios de `turno`/`excepcion`. Un local podía quedar sin cupos reales
+     * y la búsqueda seguía mostrándolo disponible hasta que, por coincidencia,
+     * algo más disparara la reconstrucción de ese día.
+     */
+    public function handleCitaCreada(CitaCreada $event): void
+    {
+        $this->invalidarPorCita($event->citaId);
+    }
+
+    public function handleCitaCancelada(CitaCancelada $event): void
+    {
+        $this->invalidarPorCita($event->citaId);
+    }
+
+    private function invalidarPorCita(string $citaId): void
+    {
+        $cita = Cita::find($citaId);
+
+        if ($cita === null) {
+            return;
+        }
+
+        $local = Local::find($cita->local_id);
+        $profesional = Profesional::find($cita->profesional_id);
+
+        if ($local === null || $profesional === null) {
+            return;
+        }
+
+        // Normalmente `inicio` y `fin` caen en el mismo día; si la cita cruza
+        // medianoche, se invalidan ambos días para no dejar uno desactualizado.
+        $fechas = collect([$cita->inicio->toDateString(), $cita->fin->toDateString()])->unique();
+
+        foreach ($fechas as $fechaString) {
+            $fecha = CarbonImmutable::parse($fechaString);
+
+            Cache::forget("disponibilidad:{$local->id}:{$profesional->id}:{$fecha->toDateString()}");
+            ReconstruirDisponibilidadDia::dispatch($local, $fecha)->onQueue('proyecciones');
+        }
     }
 
     /**

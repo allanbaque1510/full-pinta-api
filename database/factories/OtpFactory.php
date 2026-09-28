@@ -38,4 +38,10 @@ class OtpFactory extends Factory
     {
         return $this->state(fn () => ['codigo_hash' => Hash::make($codigo)]);
     }
+
+    /** Código de un destino por correo en vez de teléfono (XOR, ver la migración de `otp`). */
+    public function paraEmail(string $email): static
+    {
+        return $this->state(fn () => ['telefono' => null, 'email' => $email]);
+    }
 }

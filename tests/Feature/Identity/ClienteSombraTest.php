@@ -4,6 +4,7 @@ namespace Tests\Feature\Identity;
 
 use App\Models\Cita;
 use App\Models\ClienteLocal;
+use App\Models\FinalidadConsentimiento;
 use App\Models\Usuario;
 use App\Modules\Identity\Application\FakeEnviadorOtp;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -37,7 +38,7 @@ class ClienteSombraTest extends TestCase
         $clienteLocal = ClienteLocal::factory()->create([
             'usuario_id' => $sombra->id,
             'local_id' => $citaPrevia->local_id,
-            'total_citas' => 3,
+            'nota' => 'Prefiere fade bajo',
         ]);
 
         $this->assertTrue($sombra->esClienteSombra());
@@ -60,7 +61,7 @@ class ClienteSombraTest extends TestCase
 
         // El historial sigue intacto, colgado del mismo usuario_id.
         $this->assertDatabaseHas('cita', ['id' => $citaPrevia->id, 'cliente_id' => $sombra->id]);
-        $this->assertSame(3, $clienteLocal->fresh()->total_citas);
+        $this->assertSame('Prefiere fade bajo', $clienteLocal->fresh()->nota);
     }
 
     public function test_reclamar_conserva_el_nombre_que_puso_la_recepcion_si_no_se_manda_otro(): void
@@ -93,7 +94,7 @@ class ClienteSombraTest extends TestCase
 
         $this->assertDatabaseHas('consentimiento', [
             'usuario_id' => $sombra->id,
-            'finalidad' => 'operacion_servicio',
+            'finalidad_id' => FinalidadConsentimiento::where('codigo', 'operacion_servicio')->value('id'),
         ]);
     }
 }

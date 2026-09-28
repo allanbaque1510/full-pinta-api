@@ -56,7 +56,7 @@ class CancelarCitaTest extends TestCase
             ->assertJsonPath('estado', 'cancelada_cliente');
 
         $this->assertDatabaseHas('cliente_perfil', ['usuario_id' => $cliente->id, 'cancelaciones_tardias' => 1]);
-        $this->assertDatabaseHas('cita_evento', ['cita_id' => $cita->id, 'estado_nuevo' => 'cancelada_cliente']);
+        $this->assertDatabaseHas('cita_bitacora', ['cita_id' => $cita->id, 'estado_nuevo' => 'cancelada_cliente']);
     }
 
     public function test_el_staff_cancela_como_cancelada_local(): void

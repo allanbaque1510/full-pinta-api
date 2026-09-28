@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasOneOrMany;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
@@ -86,6 +87,18 @@ class ModelosTest extends TestCase
 
     private function comprobar(Relation $relacion, string $donde): void
     {
+        // `MorphTo` (p. ej. `Imagen::objeto()`) no tiene una sola tabla
+        // relacionada fija — es justo el punto de ser polimórfica — así que
+        // va antes del chequeo genérico de `BelongsTo` (que extiende) y solo
+        // verifica las dos columnas propias (`*_id`/`*_type`), ambas en la
+        // tabla del propio modelo.
+        if ($relacion instanceof MorphTo) {
+            $this->assertColumna($relacion->getParent()->getTable(), $relacion->getForeignKeyName(), $donde);
+            $this->assertColumna($relacion->getParent()->getTable(), $relacion->getMorphType(), $donde);
+
+            return;
+        }
+
         $relacionado = $relacion->getRelated();
 
         $this->assertTrue(

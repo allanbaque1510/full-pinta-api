@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Identity;
 
+use App\Models\FinalidadConsentimiento;
 use App\Models\Otp;
 use App\Models\Usuario;
 use App\Modules\Identity\Application\FakeEnviadorOtp;
@@ -63,7 +64,7 @@ class OtpTest extends TestCase
         $this->assertDatabaseHas('usuario', ['telefono' => $telefono, 'telefono_verificado' => true]);
         $this->assertDatabaseHas('consentimiento', [
             'usuario_id' => $respuesta->json('usuario.id'),
-            'finalidad' => 'operacion_servicio',
+            'finalidad_id' => FinalidadConsentimiento::where('codigo', 'operacion_servicio')->value('id'),
             'otorgado' => true,
         ]);
     }
@@ -158,8 +159,7 @@ class OtpTest extends TestCase
 
         $this->withHeader('Authorization', "Bearer {$token}")
             ->getJson('/api/v1/auth/contexto')
-            ->assertOk()
-            ->assertJsonPath('es_cliente', true);
+            ->assertOk();
     }
 
     /**

@@ -18,9 +18,10 @@ final readonly class FavoritoService
     {
         return $usuario->favoritos()
             ->with([
-                'local.servicios.catalogoServicio', 'local.amenidades', 'local.fotos',
+                'local.servicios.catalogoServicio', 'local.amenidades', 'local.imagenes.tipo',
                 'local.horarios', 'local.resenas',
-                'profesional.fotos', 'profesional.resenas', 'profesional.habilidades.servicioLocal.catalogoServicio',
+                'profesional.fotoPerfil', 'profesional.imagenes.tipo',
+                'profesional.resenas', 'profesional.habilidades.servicioLocal.catalogoServicio',
             ])
             ->get();
     }
@@ -51,6 +52,6 @@ final readonly class FavoritoService
             'profesional_id' => $profesionalId,
         ]);
 
-        return ['agregado' => true, 'favorito' => $favorito->load(['local', 'profesional'])];
+        return ['agregado' => true, 'favorito' => $favorito->load(['local', 'profesional.fotoPerfil'])];
     }
 }

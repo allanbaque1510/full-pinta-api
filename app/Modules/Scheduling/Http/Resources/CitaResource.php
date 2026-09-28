@@ -31,7 +31,7 @@ class CitaResource extends JsonResource
             'canal' => $this->canal,
             'precio_total' => $this->precio_total,
             'propina' => $this->propina,
-            'metodo_pago' => $this->metodo_pago,
+            'metodo_pago_id' => $this->metodo_pago_id,
             'cliente_nuevo' => $this->cliente_nuevo,
             'para_tipo' => $this->para_tipo,
             'para_nombre' => $this->para_nombre,

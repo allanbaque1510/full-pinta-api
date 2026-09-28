@@ -2,21 +2,21 @@
 
 namespace Database\Seeders;
 
+use App\Models\Rubro;
 use App\Models\ServicioCategoria;
-use App\Models\Vertical;
 use Illuminate\Database\Seeder;
 
 /**
  * Categorías del catálogo maestro (§4.5).
  *
- * El mismo código existe en verticales distintas —`corte` es categoría de
+ * El mismo código existe en rubros distintos —`corte` es categoría de
  * barbería y también de estética— y por eso `codigo` es único junto a
- * `vertical_id`, no por sí solo.
+ * `rubro_id`, no por sí solo.
  */
 class ServicioCategoriaSeeder extends Seeder
 {
     /**
-     * vertical => [codigo => [nombre, icono]], en orden de presentación.
+     * rubro => [codigo => [nombre, icono]], en orden de presentación.
      *
      * @var array<string, array<string, array{string, string}>>
      */
@@ -50,13 +50,13 @@ class ServicioCategoriaSeeder extends Seeder
 
     public function run(): void
     {
-        foreach (self::CATEGORIAS as $vertical => $categorias) {
-            $verticalId = Vertical::where('codigo', $vertical)->value('id');
+        foreach (self::CATEGORIAS as $rubro => $categorias) {
+            $rubroId = Rubro::where('codigo', $rubro)->value('id');
             $orden = 0;
 
             foreach ($categorias as $codigo => [$nombre, $icono]) {
                 ServicioCategoria::updateOrCreate(
-                    ['vertical_id' => $verticalId, 'codigo' => $codigo],
+                    ['rubro_id' => $rubroId, 'codigo' => $codigo],
                     ['nombre' => $nombre, 'icono' => $icono, 'orden' => ++$orden, 'activo' => true],
                 );
             }

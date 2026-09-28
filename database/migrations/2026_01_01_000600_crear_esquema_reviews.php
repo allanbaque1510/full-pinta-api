@@ -51,7 +51,10 @@ return new class extends Migration
         // cosa. Por eso no lleva FK.
         Schema::create('reporte', function (Blueprint $table) {
             $table->uuid('id')->primary();
-            $table->string('tipo', 20);
+            // `objeto_type`, no `tipo` (revisión de base de datos, 2026-09-28):
+            // convención pura de Laravel para `MorphTo` (`morphTo()` sin
+            // configurar nada), igual que `imagen.objeto_type`.
+            $table->string('objeto_type', 20);
             $table->uuid('objeto_id');
             $table->foreignUuid('reportante_id')->constrained('usuario')->cascadeOnDelete();
             $table->string('motivo', 30);
@@ -60,10 +63,10 @@ return new class extends Migration
             $table->timestampsTz();
 
             $table->index(['estado', 'created_at']);
-            $table->index(['tipo', 'objeto_id']);
+            $table->index(['objeto_type', 'objeto_id']);
         });
 
-        Esquema::enum('reporte', 'tipo', ['resena', 'foto', 'local', 'profesional']);
+        Esquema::enum('reporte', 'objeto_type', ['resena', 'foto', 'local', 'profesional']);
         Esquema::enum('reporte', 'motivo', [
             'difamacion', 'contenido_inapropiado', 'falso', 'spam', 'otro',
         ]);

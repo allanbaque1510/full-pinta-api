@@ -19,7 +19,8 @@ class UsuarioResource extends JsonResource
             'telefono_verificado' => $this->telefono_verificado,
             'nombre' => $this->nombre,
             'email' => $this->email,
-            'foto_url' => $this->foto_url,
+            'email_verificado' => $this->email_verificado,
+            'foto_url' => $this->fotoPerfil?->url,
         ];
     }
 }

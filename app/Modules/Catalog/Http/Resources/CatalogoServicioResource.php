@@ -15,7 +15,7 @@ class CatalogoServicioResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'vertical' => $this->categoria->vertical->codigo,
+            'rubro' => $this->categoria->rubro->codigo,
             'categoria_codigo' => $this->categoria->codigo,
             'nombre' => $this->nombre,
             'slug' => $this->slug,

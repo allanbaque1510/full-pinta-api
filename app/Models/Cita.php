@@ -66,6 +66,11 @@ class Cita extends Model
         return $this->belongsTo(Mascota::class, 'mascota_id');
     }
 
+    public function metodoPago(): BelongsTo
+    {
+        return $this->belongsTo(MetodoPago::class, 'metodo_pago_id');
+    }
+
     public function reagendadaDe(): BelongsTo
     {
         return $this->belongsTo(Cita::class, 'reagendada_de_id');
@@ -81,9 +86,9 @@ class Cita extends Model
         return $this->hasMany(CitaProducto::class, 'cita_id');
     }
 
-    public function eventos(): HasMany
+    public function bitacora(): HasMany
     {
-        return $this->hasMany(CitaEvento::class, 'cita_id');
+        return $this->hasMany(CitaBitacora::class, 'cita_id');
     }
 
     public function resena(): HasOne

@@ -2,8 +2,8 @@
 
 namespace Database\Factories;
 
+use App\Models\Rubro;
 use App\Models\ServicioCategoria;
-use App\Models\Vertical;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -16,7 +16,7 @@ class ServicioCategoriaFactory extends Factory
     public function definition(): array
     {
         return [
-            'vertical_id' => (Vertical::first() ?? Vertical::factory()->create())->id,
+            'rubro_id' => (Rubro::first() ?? Rubro::factory()->create())->id,
             'codigo' => fake()->unique()->slug(1),
             'nombre' => fake()->word(),
             'orden' => 0,

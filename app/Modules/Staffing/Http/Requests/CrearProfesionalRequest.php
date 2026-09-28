@@ -18,7 +18,6 @@ class CrearProfesionalRequest extends FormRequest
             'alias' => ['nullable', 'string', 'max:255'],
             'bio' => ['nullable', 'string'],
             'foto_url' => ['nullable', 'url', 'max:2048'],
-            'independiente' => ['sometimes', 'boolean'],
             'perfil_publico' => ['sometimes', 'boolean'],
             'traslado_min' => ['sometimes', 'integer', 'min:0'],
 

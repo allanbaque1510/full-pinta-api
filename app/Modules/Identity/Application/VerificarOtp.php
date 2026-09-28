@@ -13,11 +13,13 @@ use Laravel\Sanctum\NewAccessToken;
  * Verifica el código y resuelve el usuario: lo crea, lo reclama si era cliente
  * sombra, o simplemente lo autentica si ya existía (§4.3).
  *
- * `password_hash` no se usa para ningún inicio de sesión por contraseña —esta
- * plataforma solo autentica por OTP—; su único papel es el que describe la
- * especificación: NULL marca un registro sin reclamar. Al reclamar o registrar,
- * se le asigna un hash aleatorio e inutilizable, solo para salir del estado
- * `NULL`. Ver skill `modulo` si esto se toca.
+ * Este flujo en particular nunca autentica por contraseña — solo por OTP —
+ * así que aquí `password_hash` recibe un hash aleatorio e inutilizable, solo
+ * para salir del estado `NULL` (que marca un registro sin reclamar, §4.3). La
+ * plataforma sí admite login real por contraseña (`IniciarSesionConEmail`,
+ * `RestablecerContrasena`): `NULL` únicamente distingue "cliente sombra sin
+ * reclamar" de "ya tiene algún método de acceso", no implica que ningún
+ * usuario tenga contraseña real. Ver skill `modulo` si esto se toca.
  *
  * **Máximo `fullpinta.max_dispositivos_activos` sesiones a la vez** (2 por
  * defecto): al iniciar sesión por encima del límite, se cierra la más

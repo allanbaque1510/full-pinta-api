@@ -2,8 +2,8 @@
 
 namespace Tests\Feature\Catalog;
 
+use App\Models\Rubro;
 use App\Models\Usuario;
-use App\Models\Vertical;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Concerns\CreaNegocioDePrueba;
 use Tests\TestCase;
@@ -19,7 +19,7 @@ class SolicitudCatalogoTest extends TestCase
     {
         parent::setUp();
 
-        Vertical::factory()->create(['codigo' => 'barberia', 'nombre' => 'Barbería']);
+        Rubro::factory()->create(['codigo' => 'barberia', 'nombre' => 'Barbería']);
     }
 
     public function test_el_propietario_puede_pedir_un_servicio_nuevo(): void
@@ -28,7 +28,7 @@ class SolicitudCatalogoTest extends TestCase
 
         $this->withHeader('Authorization', "Bearer {$token}")
             ->postJson("/api/v1/locales/{$local->id}/solicitudes-catalogo", [
-                'vertical' => 'barberia', 'nombre_propuesto' => 'Afeitado a navaja',
+                'rubro' => 'barberia', 'nombre_propuesto' => 'Afeitado a navaja',
                 'descripcion' => 'Con toalla caliente',
             ])
             ->assertCreated()
@@ -43,7 +43,7 @@ class SolicitudCatalogoTest extends TestCase
 
         $this->withHeader('Authorization', "Bearer {$token}")
             ->postJson("/api/v1/locales/{$local->id}/solicitudes-catalogo", [
-                'vertical' => 'barberia', 'nombre_propuesto' => 'X',
+                'rubro' => 'barberia', 'nombre_propuesto' => 'X',
             ])
             ->assertForbidden();
     }

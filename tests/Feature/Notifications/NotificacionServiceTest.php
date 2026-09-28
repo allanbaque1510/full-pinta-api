@@ -3,6 +3,7 @@
 namespace Tests\Feature\Notifications;
 
 use App\Models\Cita;
+use App\Models\Habilidad;
 use App\Models\Notificacion;
 use App\Models\NotificacionCategoria;
 use App\Models\PreferenciaNotificacion;
@@ -109,6 +110,7 @@ class NotificacionServiceTest extends TestCase
         $cliente = Usuario::factory()->create();
         $citaVieja = Cita::factory()->reservada()->create(['cliente_id' => $cliente->id]);
         $servicio = ServicioLocal::factory()->create(['local_id' => $citaVieja->local_id]);
+        Habilidad::factory()->create(['profesional_id' => $citaVieja->profesional_id, 'servicio_local_id' => $servicio->id]);
 
         CitaCreada::dispatch($citaVieja->id); // programa el recordatorio/notificación original
 

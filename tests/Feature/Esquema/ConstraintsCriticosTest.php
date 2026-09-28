@@ -207,7 +207,6 @@ class ConstraintsCriticosTest extends TestCase
         DB::table('profesional')->insert([
             'id' => $id,
             'nombre' => $nombre,
-            'independiente' => false,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -258,19 +257,32 @@ class ConstraintsCriticosTest extends TestCase
         string $vigenteDesde = '2026-01-01',
         ?string $vigenteHasta = null,
     ): void {
-        $asignacionId = (string) Str::uuid();
+        // Reusa la asignación vigente de este (local, profesional) si ya
+        // existe — `asignacion_una_vigente` (revisión de base de datos,
+        // 2026-09-28) impide dos filas con `hasta IS NULL` para el mismo par,
+        // igual que en producción: un segundo turno se agrega a la misma
+        // asignación, no crea una nueva.
+        $asignacionId = DB::table('asignacion')
+            ->where('local_id', $localId)
+            ->where('profesional_id', $this->profesional)
+            ->whereNull('hasta')
+            ->value('id');
 
-        DB::table('asignacion')->insert([
-            'id' => $asignacionId,
-            'local_id' => $localId,
-            'profesional_id' => $this->profesional,
-            'rol' => 'barbero',
-            'modalidad' => 'empleado',
-            'comision_pct' => 50,
-            'desde' => $vigenteDesde,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        if ($asignacionId === null) {
+            $asignacionId = (string) Str::uuid();
+
+            DB::table('asignacion')->insert([
+                'id' => $asignacionId,
+                'local_id' => $localId,
+                'profesional_id' => $this->profesional,
+                'rol' => 'barbero',
+                'modalidad' => 'empleado',
+                'comision_pct' => 50,
+                'desde' => $vigenteDesde,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
 
         DB::table('turno')->insert([
             'id' => (string) Str::uuid(),

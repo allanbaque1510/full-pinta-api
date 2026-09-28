@@ -48,8 +48,8 @@ class CatalogoServicio extends Model
     }
 
     /**
-     * La vertical se deriva de la categoría (`categoria->vertical`) — no se
+     * El rubro se deriva de la categoría (`categoria->rubro`) — no se
      * guarda aparte en esta tabla para no duplicar el dato (§4.5). Cargar con
-     * `->with('categoria.vertical')` para leerla sin lazy loading.
+     * `->with('categoria.rubro')` para leerlo sin lazy loading.
      */
 }

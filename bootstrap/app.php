@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\ForzarJson;
 use App\Http\Middleware\Idempotencia;
+use App\Modules\Billing\Jobs\ActualizarVigenciaSuscripciones;
 use App\Modules\Notifications\Jobs\EnviarNotificacionesProgramadas;
 use App\Modules\Notifications\Jobs\ProgramarRecordatoriosCitas;
 use App\Modules\Notifications\Jobs\ProgramarSolicitudesResena;
@@ -32,6 +33,10 @@ return Application::configure(basePath: dirname(__DIR__))
         // Ranking orgánico (§7.3): "se recalcula por job nocturno, nunca en
         // el request" — cola `batch` (§12.6).
         $schedule->job(new RecalcularScoreRanking)->dailyAt('02:00')->onQueue('batch');
+
+        // Vigencia de suscripción (§9.6, §10.1): renovación, cancelación
+        // diferida y vencimiento tras el margen de gracia — cola `batch`.
+        $schedule->job(new ActualizarVigenciaSuscripciones)->dailyAt('03:00')->onQueue('batch');
 
         // Notificaciones (§11): programar (idempotente vía el UNIQUE de
         // `notificacion`, se puede reescanear seguido) y enviar, ambos en la

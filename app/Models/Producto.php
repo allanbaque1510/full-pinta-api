@@ -36,6 +36,11 @@ class Producto extends Model
         return $this->belongsTo(Local::class, 'local_id');
     }
 
+    public function foto(): BelongsTo
+    {
+        return $this->belongsTo(Imagen::class, 'foto_id');
+    }
+
     public function citaProductos(): HasMany
     {
         return $this->hasMany(CitaProducto::class, 'producto_id');

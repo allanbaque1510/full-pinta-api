@@ -5,12 +5,12 @@
 //
 // Ver `docs/api-referencia.md` para el contrato completo request/response.
 
+use App\Http\Controllers\ImagenController;
 use App\Modules\Directory\Http\Controllers\AmenidadController;
 use App\Modules\Directory\Http\Controllers\BusquedaLocalController;
 use App\Modules\Directory\Http\Controllers\HorarioLocalController;
 use App\Modules\Directory\Http\Controllers\LocalAmenidadController;
 use App\Modules\Directory\Http\Controllers\LocalController;
-use App\Modules\Directory\Http\Controllers\LocalFotoController;
 use App\Modules\Directory\Http\Controllers\NegocioController;
 use Illuminate\Support\Facades\Route;
 
@@ -53,10 +53,15 @@ Route::middleware('auth:sanctum')->group(function () {
         ->shallow()
         ->except(['show']);
 
-    Route::apiResource('locales.fotos', LocalFotoController::class)
-        ->parameters(['locales' => 'local'])
-        ->shallow()
-        ->except(['show']);
+    // Galería polimórfica compartida con Staffing (§4.4) — `ImagenController`
+    // no vive en ningún módulo, ninguno es dueño único de este dato. `update`/
+    // `destroy` (`imagenes/{imagen}`) se registran UNA sola vez aquí: si
+    // Staffing también las declarara, las dos generarían la misma URI y una
+    // pisaría a la otra en silencio.
+    Route::get('locales/{local}/imagenes', [ImagenController::class, 'indexLocal']);
+    Route::post('locales/{local}/imagenes', [ImagenController::class, 'storeLocal']);
+    Route::patch('imagenes/{imagen}', [ImagenController::class, 'update']);
+    Route::delete('imagenes/{imagen}', [ImagenController::class, 'destroy']);
 
     // No es un CRUD de un solo recurso por id: PUT reemplaza el conjunto
     // completo de una vez (§4.4), así que no encaja en apiResource.

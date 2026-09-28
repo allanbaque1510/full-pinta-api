@@ -32,9 +32,12 @@ class TokenSanctumTest extends TestCase
         $token = $usuario->createToken('app-movil');
 
         $this->assertNotEmpty($token->plainTextToken);
+        // 'usuario', no el FQCN: el `Relation::morphMap()` registrado para la
+        // galería polimórfica `imagen` (§4.4) aplica a CUALQUIER relación
+        // morph de `Usuario` en toda la app, incluida esta de Sanctum.
         $this->assertDatabaseHas('personal_access_tokens', [
             'tokenable_id' => $usuario->id,
-            'tokenable_type' => Usuario::class,
+            'tokenable_type' => 'usuario',
             'name' => 'app-movil',
         ]);
     }

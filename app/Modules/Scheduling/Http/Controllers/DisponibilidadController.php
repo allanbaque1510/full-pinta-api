@@ -23,6 +23,7 @@ class DisponibilidadController extends Controller
             CarbonImmutable::parse($request->validated('fecha'))->startOfDay(),
             $request->validated('servicios'),
             $request->validated('profesional_id'),
+            $request->validated('mascota_id'),
         )));
     }
 }

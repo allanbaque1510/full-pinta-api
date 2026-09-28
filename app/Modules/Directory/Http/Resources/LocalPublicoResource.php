@@ -2,7 +2,9 @@
 
 namespace App\Modules\Directory\Http\Resources;
 
+use App\Http\Resources\ImagenResource;
 use App\Models\Local;
+use App\Modules\Catalog\Http\Resources\ProductoResource;
 use App\Modules\Catalog\Http\Resources\ServicioLocalResource;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -28,14 +30,15 @@ class LocalPublicoResource extends JsonResource
             'lng' => $this->ubicacion['lng'] ?? null,
             'telefono' => $this->telefono,
             'whatsapp' => $this->whatsapp,
-            'verificado' => $this->verificado,
+            'verificado' => $this->estaVerificado(),
             'score_ranking' => $this->score_ranking,
             'lead_time_min' => $this->lead_time_min,
             'horizonte_dias' => $this->horizonte_dias,
             'horarios' => HorarioLocalResource::collection($this->whenLoaded('horarios')),
             'servicios' => ServicioLocalResource::collection($this->whenLoaded('servicios')),
+            'productos' => ProductoResource::collection($this->whenLoaded('productos')),
             'amenidades' => AmenidadResource::collection($this->whenLoaded('amenidades')),
-            'fotos' => LocalFotoResource::collection($this->whenLoaded('fotos')),
+            'imagenes' => ImagenResource::collection($this->whenLoaded('imagenes')),
             'resenas' => [
                 'promedio' => $this->whenLoaded('resenas', fn () => round($this->resenas->avg('puntaje_local') ?? 0, 1)),
                 'total' => $this->whenLoaded('resenas', fn () => $this->resenas->count()),

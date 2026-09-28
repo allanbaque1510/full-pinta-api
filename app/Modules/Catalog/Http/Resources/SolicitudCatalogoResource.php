@@ -16,7 +16,8 @@ class SolicitudCatalogoResource extends JsonResource
         return [
             'id' => $this->id,
             'local_id' => $this->local_id,
-            'vertical' => $this->vertical->codigo,
+            'solicitante_id' => $this->solicitante_id,
+            'rubro' => $this->rubro->codigo,
             'nombre_propuesto' => $this->nombre_propuesto,
             'descripcion' => $this->descripcion,
             'estado' => $this->estado,

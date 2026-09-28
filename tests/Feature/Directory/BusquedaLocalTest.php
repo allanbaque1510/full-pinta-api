@@ -5,9 +5,9 @@ namespace Tests\Feature\Directory;
 use App\Models\Amenidad;
 use App\Models\CatalogoServicio;
 use App\Models\Local;
+use App\Models\Rubro;
 use App\Models\ServicioCategoria;
 use App\Models\ServicioLocal;
-use App\Models\Vertical;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -47,24 +47,24 @@ class BusquedaLocalTest extends TestCase
         $this->assertCount(0, $respuesta->json());
     }
 
-    public function test_filtra_por_vertical(): void
+    public function test_filtra_por_rubro(): void
     {
-        $vertical = Vertical::factory()->create();
-        $categoria = ServicioCategoria::factory()->create(['vertical_id' => $vertical->id]);
+        $rubro = Rubro::factory()->create();
+        $categoria = ServicioCategoria::factory()->create(['rubro_id' => $rubro->id]);
         $catalogo = CatalogoServicio::factory()->create(['categoria_id' => $categoria->id]);
 
-        $conVertical = Local::factory()->create(['ubicacion' => ['lat' => self::LAT, 'lng' => self::LNG]]);
-        ServicioLocal::factory()->create(['local_id' => $conVertical->id, 'catalogo_servicio_id' => $catalogo->id]);
+        $conRubro = Local::factory()->create(['ubicacion' => ['lat' => self::LAT, 'lng' => self::LNG]]);
+        ServicioLocal::factory()->create(['local_id' => $conRubro->id, 'catalogo_servicio_id' => $catalogo->id]);
 
-        $sinVertical = Local::factory()->create(['ubicacion' => ['lat' => self::LAT, 'lng' => self::LNG]]);
+        $sinRubro = Local::factory()->create(['ubicacion' => ['lat' => self::LAT, 'lng' => self::LNG]]);
 
-        $respuesta = $this->getJson('/api/v1/buscar/locales?lat='.self::LAT.'&lng='.self::LNG.'&vertical='.$vertical->codigo)
+        $respuesta = $this->getJson('/api/v1/buscar/locales?lat='.self::LAT.'&lng='.self::LNG.'&rubro='.$rubro->codigo)
             ->assertOk();
 
         $ids = collect($respuesta->json())->pluck('id')->all();
 
-        $this->assertSame([$conVertical->id], $ids);
-        $this->assertNotContains($sinVertical->id, $ids);
+        $this->assertSame([$conRubro->id], $ids);
+        $this->assertNotContains($sinRubro->id, $ids);
     }
 
     public function test_filtra_por_rango_de_precio(): void
@@ -104,5 +104,24 @@ class BusquedaLocalTest extends TestCase
 
         $this->assertSame([$conAmbas->id], $ids);
         $this->assertNotContains($conUnaSola->id, $ids);
+    }
+
+    /**
+     * Revisión de base de datos 2026-09-28: `local.verificado` en `true` no
+     * basta si el negocio dueño no tiene el RUC verificado.
+     */
+    public function test_verificado_exige_tambien_el_ruc_verificado_del_negocio(): void
+    {
+        $soloLocal = Local::factory()->create([
+            'ubicacion' => ['lat' => self::LAT, 'lng' => self::LNG], 'verificado' => true,
+        ]);
+        $ambos = Local::factory()->verificado()->create(['ubicacion' => ['lat' => self::LAT, 'lng' => self::LNG]]);
+
+        $respuesta = $this->getJson('/api/v1/buscar/locales?lat='.self::LAT.'&lng='.self::LNG)->assertOk();
+
+        $porId = collect($respuesta->json())->keyBy('id');
+
+        $this->assertFalse($porId[$soloLocal->id]['verificado']);
+        $this->assertTrue($porId[$ambos->id]['verificado']);
     }
 }

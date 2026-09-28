@@ -15,8 +15,10 @@ class CrearProductoRequest extends FormRequest
     {
         return [
             'nombre' => ['required', 'string', 'max:255'],
+            'descripcion' => ['nullable', 'string'],
             'precio' => ['required', 'numeric', 'min:0'],
             'comision_pct' => ['sometimes', 'numeric', 'between:0,100'],
+            'foto_url' => ['nullable', 'url', 'max:2048'],
         ];
     }
 }

@@ -20,6 +20,7 @@ class BuscarDisponibilidadRequest extends FormRequest
             'servicios' => ['required', 'array', 'min:1'],
             'servicios.*' => ['uuid', Rule::exists('servicio_local', 'id')->where('activo', true)],
             'profesional_id' => ['nullable', 'uuid', Rule::exists('profesional', 'id')],
+            'mascota_id' => ['nullable', 'uuid', Rule::exists('mascota', 'id')],
         ];
     }
 }

@@ -84,4 +84,35 @@ class ProductoTest extends TestCase
             ->getJson("/api/v1/locales/{$local->id}/productos")
             ->assertForbidden();
     }
+
+    /**
+     * Revisión de base de datos 2026-09-28: `producto` gana descripción y
+     * foto para poder exhibirse en el perfil público del local (§4.5).
+     */
+    public function test_dar_de_alta_un_producto_con_descripcion_y_foto(): void
+    {
+        [, $token, , $local] = $this->propietarioConLocal();
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson("/api/v1/locales/{$local->id}/productos", [
+                'nombre' => 'Pomada', 'descripcion' => 'Fijación fuerte', 'precio' => 12.5,
+                'foto_url' => 'https://x.com/pomada.jpg',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('descripcion', 'Fijación fuerte')
+            ->assertJsonPath('foto_url', 'https://x.com/pomada.jpg');
+
+        $this->assertDatabaseHas('imagen', ['objeto_type' => 'producto', 'url' => 'https://x.com/pomada.jpg']);
+    }
+
+    public function test_actualizar_la_foto_de_un_producto_crea_una_imagen_nueva(): void
+    {
+        [, $token, , $local] = $this->propietarioConLocal();
+        $producto = Producto::factory()->create(['local_id' => $local->id]);
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->patchJson("/api/v1/productos/{$producto->id}", ['foto_url' => 'https://x.com/nueva.jpg'])
+            ->assertOk()
+            ->assertJsonPath('foto_url', 'https://x.com/nueva.jpg');
+    }
 }

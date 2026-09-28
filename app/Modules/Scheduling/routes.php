@@ -6,6 +6,7 @@
 // Ver `docs/api-referencia.md` para el contrato completo request/response.
 
 use App\Modules\Scheduling\Http\Controllers\CitaController;
+use App\Modules\Scheduling\Http\Controllers\ClienteLocalController;
 use App\Modules\Scheduling\Http\Controllers\DisponibilidadController;
 use App\Modules\Scheduling\Http\Controllers\EsperaController;
 use Illuminate\Support\Facades\Route;
@@ -36,4 +37,11 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('locales/{local}/esperas', [EsperaController::class, 'index']);
     Route::post('locales/{local}/esperas', [EsperaController::class, 'store']);
+
+    // Ficha del cliente (§4.7): continuidad de servicio, no calificación —
+    // `nota`/`profesional_preferido`, más el resumen de visitas calculado en
+    // vivo contra `cita`.
+    Route::get('locales/{local}/clientes', [ClienteLocalController::class, 'index']);
+    Route::get('locales/{local}/clientes/{usuario}', [ClienteLocalController::class, 'show']);
+    Route::put('locales/{local}/clientes/{usuario}', [ClienteLocalController::class, 'update']);
 });

@@ -29,4 +29,10 @@ class LocalPolicy
     {
         return (new ContextoAcceso($usuario))->puedeEditarCatalogoYAsignaciones($local);
     }
+
+    /** Ficha del cliente (`cliente_local`, §4.7): mismo permiso que ver la agenda completa. */
+    public function gestionarClientes(Usuario $usuario, Local $local): bool
+    {
+        return (new ContextoAcceso($usuario))->puedeVerAgendaCompleta($local);
+    }
 }

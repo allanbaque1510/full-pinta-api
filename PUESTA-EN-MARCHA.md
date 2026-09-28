@@ -30,7 +30,7 @@ También existe `composer run setup`, que encadena `composer install` + copiar `
 
 ### Datos de prueba
 
-`php artisan db:seed` (el `DatabaseSeeder` por defecto) solo carga catálogo maestro (verticales, categorías, catálogo de servicios, planes...) — datos que la plataforma define y que también se cargan en producción. No crea negocios, locales, profesionales ni citas.
+`php artisan db:seed` (el `DatabaseSeeder` por defecto) solo carga catálogo maestro (rubros, categorías, catálogo de servicios, planes...) — datos que la plataforma define y que también se cargan en producción. No crea negocios, locales, profesionales ni citas.
 
 Para un escenario completo con datos ficticios (3 negocios — barbería, estética, uñas —, cada uno con local, servicios, profesionales con turno y habilidades, clientes, e historial de citas en distintos estados), correr:
 
@@ -105,12 +105,42 @@ Si en algún momento se quiere una URL sin `/public/`, la forma correcta es un *
 ### Comandos del día a día
 
 ```bash
+# Tests y formato
 php artisan test                    # suite completa
 php artisan test --filter=Nombre    # un test
-vendor/bin/pint --dirty             # formateo de lo modificado
+vendor/bin/pint --dirty             # formatea solo lo modificado
+vendor/bin/pint                     # formatea todo el proyecto
+
+# Base de datos
+php artisan migrate                 # aplicar migraciones nuevas
+php artisan migrate:fresh --seed    # rehacer la base local desde cero + catálogo maestro
+php artisan db:seed                 # solo el catálogo maestro (sin rehacer tablas)
+php artisan db:seed --class=DemoDataSeeder   # + escenario ficticio completo (ver arriba)
+
+# Colas
 php artisan queue:work --queue=critica,notificaciones,proyecciones,batch
-php artisan migrate:fresh --seed    # rehacer la base local
+php artisan queue:listen             # igual, pero recarga código en cada job (solo dev)
+
+# Servidor
+composer run dev                     # serve + queue:listen en paralelo
+
+# Inspección
+php artisan route:list --except-vendor
+php artisan config:show fullpinta    # config propia de la app (config/fullpinta.php)
+php artisan tinker                   # REPL con el framework cargado
 ```
+
+### Autocompletado del IDE (`barryvdh/laravel-ide-helper`)
+
+Dependencia de desarrollo (no viaja a producción — `composer install --no-dev` no la instala). Genera metadata estática para que el editor entienda los métodos mágicos de Eloquent/Facades, que de otro modo el analizador no puede inferir (por ejemplo, marca en rojo `$modelo->columna_real` o `$this->app->isProduction()` dentro de un `ServiceProvider` aunque el código sea correcto en tiempo de ejecución).
+
+```bash
+php artisan ide-helper:generate            # autocompletado de Facades -> _ide_helper.php
+php artisan ide-helper:models --nowrite    # docblocks de columnas/relaciones de cada modelo, en archivo aparte -> _ide_helper_models.php
+php artisan ide-helper:meta                # metadata para PhpStorm -> .phpstorm.meta.php
+```
+
+Los tres archivos generados están en `.gitignore` (se regeneran localmente, no se commitean) y **hay que volver a correrlos después de migraciones o cambios de esquema** — si no, el autocompletado queda desactualizado contra la base real. `ide-helper:models` acepta `-W` para escribir los docblocks directo en cada modelo en vez de un archivo aparte; este proyecto usa `--nowrite` a propósito, para no ensuciar el diff de cada modelo con comentarios generados.
 
 ---
 

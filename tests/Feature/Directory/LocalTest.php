@@ -132,4 +132,24 @@ class LocalTest extends TestCase
             ->assertJsonPath('lat', -2.5678)
             ->assertJsonPath('lng', -79.4321);
     }
+
+    /**
+     * Revisión de base de datos 2026-09-28: `local.verificado` en `true` no
+     * basta si el negocio dueño no tiene el RUC verificado.
+     */
+    public function test_verificado_exige_tambien_el_ruc_verificado_del_negocio(): void
+    {
+        [, $token, $negocio, $local] = $this->propietarioConLocal();
+        $local->update(['verificado' => true]);
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/locales/{$local->id}")
+            ->assertJsonPath('verificado', false);
+
+        $negocio->update(['ruc_verificado' => true]);
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/locales/{$local->id}")
+            ->assertJsonPath('verificado', true);
+    }
 }

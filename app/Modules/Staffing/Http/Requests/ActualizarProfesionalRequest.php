@@ -18,7 +18,6 @@ class ActualizarProfesionalRequest extends FormRequest
             'alias' => ['sometimes', 'nullable', 'string', 'max:255'],
             'bio' => ['sometimes', 'nullable', 'string'],
             'foto_url' => ['sometimes', 'nullable', 'url', 'max:2048'],
-            'independiente' => ['sometimes', 'boolean'],
             'perfil_publico' => ['sometimes', 'boolean'],
             'traslado_min' => ['sometimes', 'integer', 'min:0'],
         ];

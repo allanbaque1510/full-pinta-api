@@ -43,9 +43,19 @@ class LocalFactory extends Factory
         return $this->state(fn () => ['estado' => 'borrador']);
     }
 
+    /**
+     * "Verificado" de verdad exige las dos cosas (§4.4, revisión de base de
+     * datos, 2026-09-28): el local Y el RUC del negocio dueño — por eso este
+     * estado también fuerza `negocio.ruc_verificado`, no solo la columna
+     * propia. Ver `Local::estaVerificado()`.
+     */
     public function verificado(): static
     {
-        return $this->state(fn () => ['verificado' => true, 'verificado_at' => now()]);
+        return $this->state(fn () => [
+            'verificado' => true,
+            'verificado_at' => now(),
+            'negocio_id' => Negocio::factory()->rucVerificado(),
+        ]);
     }
 
     /** Sin anticipación mínima: útil para agendar "ahora mismo" en un test. */

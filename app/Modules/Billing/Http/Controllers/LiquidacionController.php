@@ -19,7 +19,7 @@ class LiquidacionController extends Controller
         return $this->ejecutar(function () use ($local, $liquidaciones) {
             $this->authorize('gestionar', [Liquidacion::class, $local]);
 
-            $lista = $liquidaciones->listarPorLocal($local)->load('local.negocio');
+            $lista = $liquidaciones->listarPorLocal($local)->load('local.negocio.plan');
 
             return LiquidacionResource::collection($lista);
         });
@@ -37,7 +37,7 @@ class LiquidacionController extends Controller
                 CarbonImmutable::parse($request->validated('periodo_hasta'))->endOfDay(),
             );
 
-            return LiquidacionResource::make($liquidacion->load('local.negocio'));
+            return LiquidacionResource::make($liquidacion->load('local.negocio.plan'));
         }, 201);
     }
 
@@ -46,7 +46,7 @@ class LiquidacionController extends Controller
         return $this->ejecutar(function () use ($liquidacion, $liquidaciones) {
             $this->authorize('actualizar', $liquidacion);
 
-            return LiquidacionResource::make($liquidaciones->cerrar($liquidacion)->load('local.negocio'));
+            return LiquidacionResource::make($liquidaciones->cerrar($liquidacion)->load('local.negocio.plan'));
         });
     }
 
@@ -55,7 +55,7 @@ class LiquidacionController extends Controller
         return $this->ejecutar(function () use ($liquidacion, $liquidaciones) {
             $this->authorize('actualizar', $liquidacion);
 
-            return LiquidacionResource::make($liquidaciones->marcarPagada($liquidacion)->load('local.negocio'));
+            return LiquidacionResource::make($liquidaciones->marcarPagada($liquidacion)->load('local.negocio.plan'));
         });
     }
 }

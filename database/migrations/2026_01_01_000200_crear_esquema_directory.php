@@ -20,6 +20,28 @@ return new class extends Migration
             $table->uuid('id')->primary();
             $table->string('codigo', 10)->unique();
             $table->string('nombre');
+
+            // Límites: NULL = ilimitado (§9.4).
+            $table->smallInteger('limite_locales')->nullable();
+            $table->smallInteger('limite_profesionales')->nullable();
+            $table->smallInteger('limite_fotos')->nullable();
+
+            // Capacidades por feature (§9.2, §9.4) — se leen directo de aquí,
+            // nunca comparando `codigo === 'pro'` como proxy (revisión de base
+            // de datos, 2026-09-28).
+            $table->boolean('liquidacion_desglose')->default(false);
+            $table->boolean('recordatorios_whatsapp')->default(false);
+            $table->boolean('responder_resenas')->default(false);
+            $table->boolean('estadisticas_completas')->default(false);
+            $table->boolean('promociones_horas_valle')->default(false);
+            $table->boolean('bloque_destacados')->default(false);
+
+            // Precio (§9.6): $8 el primer profesional + $5 por cada adicional.
+            $table->decimal('precio_base', 10, 2)->default(0);
+            $table->decimal('precio_adicional', 10, 2)->default(0);
+            $table->smallInteger('meses_pago_anual')->default(12);   // 10 = paga 10, se lleva 12
+
+            $table->smallInteger('orden')->default(0);
             $table->boolean('activo')->default(true);
         });
 
@@ -27,9 +49,15 @@ return new class extends Migration
             $table->uuid('id')->primary();
             $table->string('nombre_marca');
             $table->string('ruc', 13)->nullable();
+            $table->boolean('ruc_verificado')->default(false);
+            $table->timestampTz('ruc_verificado_at')->nullable();
             $table->foreignUuid('propietario_id')->constrained('usuario')->restrictOnDelete();
             $table->foreignUuid('plan_id')->constrained('plan')->restrictOnDelete();
             $table->date('plan_vigente_hasta')->nullable();
+            // Logo de marca y portada — propios del negocio, independientes de
+            // la galería de fotos de cada `local` (fachada/interior/muestra).
+            $table->foreignUuid('foto_perfil_id')->nullable()->constrained('imagen')->nullOnDelete();
+            $table->foreignUuid('portada_imagen_id')->nullable()->constrained('imagen')->nullOnDelete();
             $table->timestampsTz();
 
             $table->index('propietario_id');
@@ -91,7 +119,7 @@ return new class extends Migration
         });
 
         // "Acepta mascotas en sala" es una amenidad. "Baña perros" es un
-        // servicio de la vertical mascotas. Confundirlas lleva clientes con su
+        // servicio del rubro mascotas. Confundirlas lleva clientes con su
         // perro a un local que solo lo deja entrar (§4.4).
         Schema::create('amenidad', function (Blueprint $table) {
             $table->uuid('id')->primary();
@@ -108,6 +136,26 @@ return new class extends Migration
             $table->string('detalle')->nullable();   // "cerveza artesanal", "PS5"
 
             $table->primary(['local_id', 'amenidad_id']);
+        });
+
+        // Extraído de la categoría 'pago' de `amenidad` (revisión de base de
+        // datos, 2026-09-28): un método de pago no es una comodidad del local,
+        // y `cita.metodo_pago` repetía el mismo enum. Tabla de parámetros +
+        // pivote, mismo criterio que `amenidad`/`local_amenidad`.
+        Schema::create('metodo_pago', function (Blueprint $table) {
+            $table->uuid('id')->primary();
+            $table->string('codigo', 20)->unique();
+            $table->string('nombre');
+            $table->string('icono', 60)->nullable();
+            $table->smallInteger('orden')->default(0);
+            $table->boolean('activo')->default(true);
+        });
+
+        Schema::create('local_metodo_pago', function (Blueprint $table) {
+            $table->foreignUuid('local_id')->constrained('local')->cascadeOnDelete();
+            $table->foreignUuid('metodo_pago_id')->constrained('metodo_pago')->cascadeOnDelete();
+
+            $table->primary(['local_id', 'metodo_pago_id']);
         });
 
         // Recepción es un rol aparte: agenda y cobra, pero no ve las comisiones
@@ -127,23 +175,18 @@ return new class extends Migration
 
         Esquema::enum('negocio_miembro', 'rol', ['propietario', 'admin', 'recepcion']);
 
-        Schema::create('local_foto', function (Blueprint $table) {
-            $table->uuid('id')->primary();
-            $table->foreignUuid('local_id')->constrained('local')->cascadeOnDelete();
-            $table->string('url');
-            $table->string('tipo', 20);
-            $table->smallInteger('orden')->default(0);
-
-            $table->index(['local_id', 'orden']);
-        });
-
-        Esquema::enum('local_foto', 'tipo', ['fachada', 'interior', 'trabajo']);
+        // `local_foto` se reemplazó por la galería polimórfica `imagen`
+        // (`objeto_type = 'local'`) — revisión de base de datos, 2026-09-28.
+        // `local` se queda sin puntero: es galería pura (fachada/interior/
+        // muestra), a diferencia de `usuario`/`profesional`/`mascota`, que sí
+        // tienen `foto_perfil_id`.
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('local_foto');
         Schema::dropIfExists('negocio_miembro');
+        Schema::dropIfExists('local_metodo_pago');
+        Schema::dropIfExists('metodo_pago');
         Schema::dropIfExists('local_amenidad');
         Schema::dropIfExists('amenidad');
         Schema::dropIfExists('amenidad_categoria');

@@ -27,6 +27,6 @@ class ExpirarHoldsVencidosTest extends TestCase
         $this->assertDatabaseHas('cita', ['id' => $vencido->id, 'estado' => 'expirada']);
         $this->assertDatabaseHas('cita', ['id' => $vigente->id, 'estado' => 'reservada']);
         $this->assertDatabaseHas('cita', ['id' => $yaConfirmada->id, 'estado' => 'confirmada']);
-        $this->assertDatabaseHas('cita_evento', ['cita_id' => $vencido->id, 'estado_nuevo' => 'expirada']);
+        $this->assertDatabaseHas('cita_bitacora', ['cita_id' => $vencido->id, 'estado_nuevo' => 'expirada']);
     }
 }

@@ -4,6 +4,8 @@ namespace Tests\Feature\Esquema;
 
 use App\Models\Amenidad;
 use App\Models\CatalogoServicio;
+use App\Models\FinalidadConsentimiento;
+use App\Models\MetodoPago;
 use App\Models\ServicioCategoria;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -24,7 +26,9 @@ class SeedersTest extends TestCase
 
         $this->assertSame(17, ServicioCategoria::count());
         $this->assertSame(25, CatalogoServicio::count());
-        $this->assertSame(27, Amenidad::count());
+        $this->assertSame(23, Amenidad::count());
+        $this->assertSame(4, MetodoPago::count());
+        $this->assertSame(4, FinalidadConsentimiento::count());
     }
 
     public function test_correr_las_semillas_dos_veces_no_duplica(): void
@@ -34,23 +38,25 @@ class SeedersTest extends TestCase
 
         $this->assertSame(17, ServicioCategoria::count());
         $this->assertSame(25, CatalogoServicio::count());
-        $this->assertSame(27, Amenidad::count());
+        $this->assertSame(23, Amenidad::count());
+        $this->assertSame(4, MetodoPago::count());
+        $this->assertSame(4, FinalidadConsentimiento::count());
     }
 
-    public function test_las_cuatro_verticales_tienen_categorias_y_servicios(): void
+    public function test_los_cuatro_rubros_tienen_categorias_y_servicios(): void
     {
         $this->seed();
 
-        foreach (['barberia', 'estetica', 'unas', 'mascotas'] as $vertical) {
+        foreach (['barberia', 'estetica', 'unas', 'mascotas'] as $rubro) {
             $this->assertGreaterThan(
                 0,
-                ServicioCategoria::whereHas('vertical', fn ($q) => $q->where('codigo', $vertical))->count(),
-                "La vertical '{$vertical}' se quedó sin categorías.",
+                ServicioCategoria::whereHas('rubro', fn ($q) => $q->where('codigo', $rubro))->count(),
+                "El rubro '{$rubro}' se quedó sin categorías.",
             );
             $this->assertGreaterThan(
                 0,
-                CatalogoServicio::whereHas('categoria.vertical', fn ($q) => $q->where('codigo', $vertical))->count(),
-                "La vertical '{$vertical}' se quedó sin servicios.",
+                CatalogoServicio::whereHas('categoria.rubro', fn ($q) => $q->where('codigo', $rubro))->count(),
+                "El rubro '{$rubro}' se quedó sin servicios.",
             );
         }
     }
@@ -66,8 +72,8 @@ class SeedersTest extends TestCase
     }
 
     /**
-     * "Acepta mascotas en sala" es una amenidad; "baña perros" es un servicio de
-     * la vertical mascotas. Confundirlas lleva clientes con su perro a un local
+     * "Acepta mascotas en sala" es una amenidad; "baña perros" es un servicio
+     * del rubro mascotas. Confundirlas lleva clientes con su perro a un local
      * que solo lo deja entrar (§4.4).
      */
     public function test_acepta_mascotas_es_amenidad_y_no_servicio(): void

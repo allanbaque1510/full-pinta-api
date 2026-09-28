@@ -2,9 +2,12 @@
 
 namespace App\Modules\Catalog\Application;
 
+use App\Models\CatalogoServicio;
 use App\Models\Local;
+use App\Models\Recurso;
 use App\Models\ServicioLocal;
 use App\Models\TamanoMascota;
+use App\Modules\Catalog\Events\ServicioLocalModificado;
 use Illuminate\Database\Eloquent\Collection;
 
 /**
@@ -37,12 +40,48 @@ final readonly class ServicioLocalService
             'activo' => true,
         ]);
 
-        return $servicio->load('catalogoServicio');
+        $servicio->load('catalogoServicio.tipoRecurso');
+        $this->asegurarRecursoPorDefecto($local, $servicio->catalogoServicio);
+
+        ServicioLocalModificado::dispatch($local->id);
+
+        return $servicio;
+    }
+
+    /**
+     * Un local que activa su primer servicio de un tipo de recurso (p. ej. el
+     * primer servicio de uñas) no debería quedarse sin poder agendar por no
+     * haber dado de alta manualmente una mesa — se le crea una por defecto
+     * (§4.6). 'ninguno' es el tipo centinela que marca "no hace falta
+     * recurso" (barbería, tras esta misma revisión): esos servicios no crean
+     * nada.
+     */
+    private function asegurarRecursoPorDefecto(Local $local, CatalogoServicio $catalogoServicio): void
+    {
+        if ($catalogoServicio->tipoRecurso->codigo === 'ninguno') {
+            return;
+        }
+
+        $tieneRecursoActivo = Recurso::where('local_id', $local->id)
+            ->where('tipo_recurso_id', $catalogoServicio->tipo_recurso_id)
+            ->where('activo', true)
+            ->exists();
+
+        if (! $tieneRecursoActivo) {
+            Recurso::create([
+                'local_id' => $local->id,
+                'tipo_recurso_id' => $catalogoServicio->tipo_recurso_id,
+                'nombre' => $catalogoServicio->tipoRecurso->nombre.' 1',
+                'activo' => true,
+            ]);
+        }
     }
 
     public function actualizar(ServicioLocal $servicio, array $datos): ServicioLocal
     {
         $servicio->update($datos);
+
+        ServicioLocalModificado::dispatch($servicio->local_id);
 
         return $servicio->load('catalogoServicio');
     }
@@ -55,6 +94,8 @@ final readonly class ServicioLocalService
     public function desactivar(ServicioLocal $servicio): void
     {
         $servicio->update(['activo' => false]);
+
+        ServicioLocalModificado::dispatch($servicio->local_id);
     }
 
     /**
@@ -65,6 +106,18 @@ final readonly class ServicioLocalService
      */
     public function sincronizarTamanos(ServicioLocal $servicio, array $tamanos): Collection
     {
+        // Sin esto se le podría asignar precio por tamaño de mascota a un
+        // corte de pelo de barbería: no hay CHECK de Postgres posible, la
+        // cadena servicio_local -> catalogo_servicio -> servicio_categoria ->
+        // rubro cruza tres FKs (revisión de base de datos, 2026-09-28).
+        if ($tamanos !== []) {
+            $servicio->loadMissing('catalogoServicio.categoria.rubro');
+
+            if ($servicio->catalogoServicio->categoria->rubro->codigo !== 'mascotas') {
+                throw_validacion('Este servicio no pertenece al rubro mascotas; no admite precio por tamaño.', 'tamanos');
+            }
+        }
+
         $servicio->tamanos()->delete();
 
         foreach ($tamanos as $tamano) {

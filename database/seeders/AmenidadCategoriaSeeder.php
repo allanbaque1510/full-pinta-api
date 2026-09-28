@@ -7,7 +7,10 @@ use Illuminate\Database\Seeder;
 
 /**
  * Categorías de amenidad (§4.4): confort, entretenimiento, niños,
- * accesibilidad, pago, política.
+ * accesibilidad, política.
+ *
+ * 'pago' se extrajo a `metodo_pago` (revisión de base de datos, 2026-09-28):
+ * un método de pago no es una comodidad del local.
  */
 class AmenidadCategoriaSeeder extends Seeder
 {
@@ -21,7 +24,6 @@ class AmenidadCategoriaSeeder extends Seeder
         'entretenimiento' => 'Entretenimiento',
         'ninos' => 'Niños',
         'accesibilidad' => 'Accesibilidad',
-        'pago' => 'Pago',
         'politica' => 'Política',
     ];
 

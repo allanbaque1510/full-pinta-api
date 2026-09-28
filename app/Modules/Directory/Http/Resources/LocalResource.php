@@ -23,7 +23,7 @@ class LocalResource extends JsonResource
             'lng' => $this->ubicacion['lng'] ?? null,
             'telefono' => $this->telefono,
             'whatsapp' => $this->whatsapp,
-            'verificado' => $this->verificado,
+            'verificado' => $this->estaVerificado(),
             'estado' => $this->estado,
             'lead_time_min' => $this->lead_time_min,
             'horizonte_dias' => $this->horizonte_dias,

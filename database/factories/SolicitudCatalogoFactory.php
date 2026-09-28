@@ -3,8 +3,9 @@
 namespace Database\Factories;
 
 use App\Models\Local;
+use App\Models\Rubro;
 use App\Models\SolicitudCatalogo;
-use App\Models\Vertical;
+use App\Models\Usuario;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -18,7 +19,8 @@ class SolicitudCatalogoFactory extends Factory
     {
         return [
             'local_id' => Local::factory(),
-            'vertical_id' => (Vertical::first() ?? Vertical::factory()->create())->id,
+            'solicitante_id' => Usuario::factory(),
+            'rubro_id' => (Rubro::first() ?? Rubro::factory()->create())->id,
             'nombre_propuesto' => fake()->words(2, true),
             'descripcion' => fake()->optional()->sentence(),
             'estado' => 'pendiente',

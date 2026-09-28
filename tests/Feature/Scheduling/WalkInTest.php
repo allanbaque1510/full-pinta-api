@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Scheduling;
 
+use App\Models\Habilidad;
 use App\Models\Profesional;
 use App\Models\ServicioLocal;
 use App\Models\Usuario;
@@ -25,6 +26,7 @@ class WalkInTest extends TestCase
         [, $token, , $local] = $this->propietarioConLocal();
         $servicio = ServicioLocal::factory()->create(['local_id' => $local->id, 'duracion_min' => 30, 'buffer_min' => 0]);
         $profesional = Profesional::factory()->create();
+        Habilidad::factory()->create(['profesional_id' => $profesional->id, 'servicio_local_id' => $servicio->id]);
 
         $this->withHeaders($this->headers($token))
             ->postJson("/api/v1/locales/{$local->id}/citas/walk-in", [
@@ -45,6 +47,7 @@ class WalkInTest extends TestCase
         [, $token] = $this->recepcionEnNegocio($negocio);
         $servicio = ServicioLocal::factory()->create(['local_id' => $local->id, 'duracion_min' => 30, 'buffer_min' => 0]);
         $profesional = Profesional::factory()->create();
+        Habilidad::factory()->create(['profesional_id' => $profesional->id, 'servicio_local_id' => $servicio->id]);
 
         $this->withHeaders($this->headers($token))
             ->postJson("/api/v1/locales/{$local->id}/citas/walk-in", [
@@ -61,6 +64,7 @@ class WalkInTest extends TestCase
         $existente = Usuario::factory()->create(['telefono' => '0990001144']);
         $servicio = ServicioLocal::factory()->create(['local_id' => $local->id, 'duracion_min' => 30, 'buffer_min' => 0]);
         $profesional = Profesional::factory()->create();
+        Habilidad::factory()->create(['profesional_id' => $profesional->id, 'servicio_local_id' => $servicio->id]);
 
         $this->withHeaders($this->headers($token))
             ->postJson("/api/v1/locales/{$local->id}/citas/walk-in", [

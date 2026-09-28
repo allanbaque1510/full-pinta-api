@@ -17,8 +17,6 @@ class ClientePerfilFactory extends Factory
     {
         return [
             'usuario_id' => Usuario::factory(),
-            'genero' => fake()->randomElement(['m', 'f', 'otro', 'no_decir']),
-            'fecha_nacimiento' => fake()->dateTimeBetween('-60 years', '-18 years'),
             'no_shows' => 0,
             'cancelaciones_tardias' => 0,
             'requiere_confirmacion' => false,

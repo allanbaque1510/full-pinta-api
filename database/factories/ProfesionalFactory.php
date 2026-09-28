@@ -20,7 +20,6 @@ class ProfesionalFactory extends Factory
             'nombre' => fake()->name(),
             'alias' => fake()->optional()->firstName(),
             'bio' => fake()->optional()->sentence(),
-            'independiente' => false,
             'perfil_publico' => true,
             'traslado_min' => 30,
         ];

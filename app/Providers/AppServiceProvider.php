@@ -2,7 +2,16 @@
 
 namespace App\Providers;
 
+use App\Models\Imagen;
+use App\Models\Local;
+use App\Models\Mascota;
+use App\Models\Negocio;
+use App\Models\Producto;
+use App\Models\Profesional;
+use App\Models\Resena;
+use App\Models\Usuario;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\ServiceProvider;
@@ -18,6 +27,7 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->configurarEloquent();
         $this->protegerProduccion();
+        $this->registrarMorphMap();
 
         // La API nunca envuelve un solo recurso en {"data": ...}: todo
         // Resource se serializa "plano", sea que el controlador lo devuelva
@@ -60,5 +70,26 @@ class AppServiceProvider extends ServiceProvider
     private function protegerProduccion(): void
     {
         DB::prohibitDestructiveCommands($this->app->isProduction());
+    }
+
+    /**
+     * `imagen.objeto_type`/`reporte.objeto_type` (§4.4, §4.8) viajan por este
+     * alias corto, nunca el FQCN — convención pura de Laravel (`uuidMorphs`):
+     * si el modelo se renombra o se mueve de namespace, las filas ya
+     * guardadas no quedan huérfanas. `'foto'` apunta a `Imagen` (la tabla
+     * unificada), no a las viejas `local_foto`/`profesional_foto`.
+     */
+    private function registrarMorphMap(): void
+    {
+        Relation::morphMap([
+            'local' => Local::class,
+            'profesional' => Profesional::class,
+            'mascota' => Mascota::class,
+            'usuario' => Usuario::class,
+            'negocio' => Negocio::class,
+            'producto' => Producto::class,
+            'resena' => Resena::class,
+            'foto' => Imagen::class,
+        ]);
     }
 }

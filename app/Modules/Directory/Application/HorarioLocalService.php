@@ -16,6 +16,8 @@ use Illuminate\Database\Eloquent\Collection;
  */
 final readonly class HorarioLocalService
 {
+    public function __construct(private LocalService $locales) {}
+
     public function listar(Local $local): Collection
     {
         return $local->horarios;
@@ -27,7 +29,11 @@ final readonly class HorarioLocalService
             throw_validacion('La hora de cierre debe ser posterior a la de apertura.', 'cierra');
         }
 
-        return $local->horarios()->create($datos);
+        $horario = $local->horarios()->create($datos);
+
+        $this->locales->invalidarPerfilPublico($local->id);
+
+        return $horario;
     }
 
     public function actualizar(HorarioLocal $horario, array $datos): HorarioLocal
@@ -46,6 +52,8 @@ final readonly class HorarioLocalService
 
         $horario->update($datos);
 
+        $this->locales->invalidarPerfilPublico($horario->local_id);
+
         return $horario;
     }
 
@@ -53,6 +61,9 @@ final readonly class HorarioLocalService
     {
         // Tabla sin `activo`/`estado`: no es de las que se marcan, es de las
         // que de verdad se borran (§4.2, ver skill `migracion`).
+        $localId = $horario->local_id;
         $horario->delete();
+
+        $this->locales->invalidarPerfilPublico($localId);
     }
 }

@@ -35,8 +35,18 @@ final readonly class CobroService
         ]);
     }
 
+    /**
+     * Revisión de base de datos 2026-09-28: sin guardia de estado, se podía
+     * marcar pagado un cobro que ya estaba pagado — reemitiendo un
+     * `comprobante_sri` duplicado para el mismo pago. Mismo criterio que ya
+     * usa `LiquidacionService` en cada una de sus transiciones.
+     */
     public function marcarPagado(Cobro $cobro): Cobro
     {
+        if (! in_array($cobro->estado, ['pendiente', 'fallido'], true)) {
+            throw_validacion("No se puede marcar pagado un cobro '{$cobro->estado}'.", 'estado');
+        }
+
         $cobro->update([
             'estado' => 'pagado',
             'pagado_at' => now(),
@@ -48,8 +58,28 @@ final readonly class CobroService
 
     public function marcarFallido(Cobro $cobro): Cobro
     {
+        if ($cobro->estado !== 'pendiente') {
+            throw_validacion("No se puede marcar fallido un cobro '{$cobro->estado}'.", 'estado');
+        }
+
         $cobro->increment('intentos');
         $cobro->update(['estado' => 'fallido']);
+
+        return $cobro;
+    }
+
+    /**
+     * `reembolsado` era un estado muerto: definido en el `CHECK` del esquema,
+     * pero sin ningún método que transicionara a él (revisión de base de
+     * datos, 2026-09-28).
+     */
+    public function marcarReembolsado(Cobro $cobro): Cobro
+    {
+        if ($cobro->estado !== 'pagado') {
+            throw_validacion("Solo se puede reembolsar un cobro 'pagado'.", 'estado');
+        }
+
+        $cobro->update(['estado' => 'reembolsado']);
 
         return $cobro;
     }

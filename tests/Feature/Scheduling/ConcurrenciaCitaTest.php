@@ -9,12 +9,12 @@ use App\Models\HorarioLocal;
 use App\Models\Local;
 use App\Models\Negocio;
 use App\Models\Profesional;
+use App\Models\Rubro;
 use App\Models\ServicioCategoria;
 use App\Models\ServicioLocal;
 use App\Models\TipoRecurso;
 use App\Models\Turno;
 use App\Models\Usuario;
-use App\Models\Vertical;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -45,7 +45,18 @@ use Tests\TestCase;
  */
 class ConcurrenciaCitaTest extends TestCase
 {
-    private const SERVIDORES = 5;
+    /**
+     * Un servidor `php -S` por petición, no compartido: cada uno es de un
+     * solo worker (§ arriba), y con `verificarSinExcepcion()`/
+     * `verificarHabilidades()` (revisión de base de datos 2026-09-28) cada
+     * request hace dos consultas más antes de la transacción — suficiente
+     * para que, con 5 servidores atendiendo 4 peticiones cada uno en serie,
+     * las últimas de la cola de cada proceso ocasionalmente se quedaran sin
+     * respuesta (curl code 0, conexión cerrada sin datos). El `EXCLUDE` de
+     * Postgres nunca dejó de ganar exactamente una — era la cola del
+     * servidor de prueba la que no daba abasto, no una doble reserva.
+     */
+    private const SERVIDORES = 20;
 
     private const PETICIONES = 20;
 
@@ -178,15 +189,19 @@ class ConcurrenciaCitaTest extends TestCase
             .' Errores curl: '.implode('|', array_filter($errores))
             .' Cuerpos: '.implode('|', array_slice($cuerpos, 0, 3)),
         );
-        $this->assertSame(self::PETICIONES - 1, $conflictos);
+        $this->assertSame(
+            self::PETICIONES - 1,
+            $conflictos,
+            'Códigos: '.implode(',', $codigos).' Errores: '.implode('|', array_filter($errores)),
+        );
         $this->assertSame(1, DB::table('cita')->count());
     }
 
     /** @return array{0:Local,1:Profesional,2:ServicioLocal,3:string} */
     private function prepararEscenario(): array
     {
-        $vertical = Vertical::factory()->create();
-        $categoria = ServicioCategoria::factory()->create(['vertical_id' => $vertical->id]);
+        $rubro = Rubro::factory()->create();
+        $categoria = ServicioCategoria::factory()->create(['rubro_id' => $rubro->id]);
         $tipoNinguno = TipoRecurso::where('codigo', 'ninguno')->first()
             ?? TipoRecurso::factory()->create(['codigo' => 'ninguno', 'nombre' => 'Ninguno']);
 
@@ -226,7 +241,7 @@ class ConcurrenciaCitaTest extends TestCase
         $usuario = Usuario::factory()->create();
         $token = $usuario->createToken('t')->plainTextToken;
 
-        $this->limpieza = function () use ($local, $negocio, $catalogo, $categoria, $vertical, $profesional, $usuario) {
+        $this->limpieza = function () use ($local, $negocio, $catalogo, $categoria, $rubro, $profesional, $usuario) {
             DB::table('cita')->where('local_id', $local->id)->delete();
             // Cascada: horario_local, asignacion (y su turno), servicio_local, recurso.
             $local->delete();
@@ -236,7 +251,7 @@ class ConcurrenciaCitaTest extends TestCase
             $negocio->propietario->delete();
             $catalogo->delete();
             $categoria->delete();
-            $vertical->delete();
+            $rubro->delete();
             $profesional->delete();
             $usuario->tokens()->delete();
             $usuario->delete();

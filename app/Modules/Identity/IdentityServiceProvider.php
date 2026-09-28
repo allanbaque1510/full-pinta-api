@@ -2,11 +2,14 @@
 
 namespace App\Modules\Identity;
 
+use App\Modules\Identity\Application\Contracts\EnviadorCodigoEmail;
 use App\Modules\Identity\Application\Contracts\EnviadorOtp;
 use App\Modules\Identity\Application\Contracts\VerificadorTokenGoogle;
+use App\Modules\Identity\Application\FakeEnviadorCodigoEmail;
 use App\Modules\Identity\Application\FakeEnviadorOtp;
 use App\Modules\Identity\Application\FakeVerificadorTokenGoogle;
 use App\Modules\Identity\Application\GoogleTokeninfoVerificador;
+use App\Modules\Identity\Application\LogEnviadorCodigoEmail;
 use App\Modules\Identity\Application\LogEnviadorOtp;
 use App\Modules\ModuleServiceProvider;
 
@@ -20,6 +23,14 @@ class IdentityServiceProvider extends ModuleServiceProvider
         $this->app->singleton(
             EnviadorOtp::class,
             fn () => $this->app->environment('testing') ? new FakeEnviadorOtp : new LogEnviadorOtp,
+        );
+
+        // Mismo criterio: sin proveedor de correo saliente contratado
+        // todavía (bloqueador externo), log en cualquier entorno normal y un
+        // doble en memoria durante los tests.
+        $this->app->singleton(
+            EnviadorCodigoEmail::class,
+            fn () => $this->app->environment('testing') ? new FakeEnviadorCodigoEmail : new LogEnviadorCodigoEmail,
         );
 
         // Mismo criterio: verificación real contra Google fuera de tests, un

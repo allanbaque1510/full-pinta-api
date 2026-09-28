@@ -37,6 +37,16 @@ class Consentimiento extends Model
         return $this->belongsTo(Usuario::class, 'usuario_id');
     }
 
+    public function finalidadConsentimiento(): BelongsTo
+    {
+        return $this->belongsTo(FinalidadConsentimiento::class, 'finalidad_id');
+    }
+
+    public function documentoLegal(): BelongsTo
+    {
+        return $this->belongsTo(DocumentoLegal::class, 'documento_legal_id');
+    }
+
     public function estaVigente(): bool
     {
         return $this->otorgado && $this->revocado_at === null;

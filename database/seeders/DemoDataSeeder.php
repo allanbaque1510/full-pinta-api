@@ -31,7 +31,7 @@ use Illuminate\Support\Facades\Hash;
 
 /**
  * Escenario ficticio completo para desarrollo manual y demos: 3 negocios (uno
- * por vertical activa en la v1), cada uno con local, servicios reales del
+ * por rubro activo en la v1), cada uno con local, servicios reales del
  * catálogo maestro, profesionales con turno y habilidades, clientes, y un
  * historial de citas que recorre los estados del §6.
  *
@@ -76,7 +76,7 @@ class DemoDataSeeder extends Seeder
             return;
         }
 
-        // Catálogo maestro (vertical, categorías, catalogo_servicio, tipo_recurso,
+        // Catálogo maestro (rubro, categorías, catalogo_servicio, tipo_recurso,
         // plan...) del que este escenario depende. Idempotente: si ya corrió,
         // solo actualiza en vez de duplicar.
         $this->call(DatabaseSeeder::class);
@@ -246,11 +246,11 @@ class DemoDataSeeder extends Seeder
     }
 
     private function servicioLocal(
-        ServicioLocalService $servicio, Local $local, string $vertical,
+        ServicioLocalService $servicio, Local $local, string $rubro,
         string $nombreCatalogo, float $precio, int $duracion,
     ): ServicioLocal {
         $catalogoServicioId = CatalogoServicio::query()
-            ->whereHas('categoria.vertical', fn ($q) => $q->where('codigo', $vertical))
+            ->whereHas('categoria.rubro', fn ($q) => $q->where('codigo', $rubro))
             ->where('nombre', $nombreCatalogo)
             ->value('id');
 

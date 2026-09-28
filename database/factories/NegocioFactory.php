@@ -32,8 +32,21 @@ class NegocioFactory extends Factory
         ]);
     }
 
+    public function rucVerificado(): static
+    {
+        return $this->state(fn () => ['ruc_verificado' => true, 'ruc_verificado_at' => now()]);
+    }
+
     private static function planId(string $codigo): string
     {
-        return (Plan::where('codigo', $codigo)->first() ?? Plan::factory()->create(['codigo' => $codigo]))->id;
+        $existente = Plan::where('codigo', $codigo)->first();
+
+        if ($existente !== null) {
+            return $existente->id;
+        }
+
+        $factory = $codigo === 'pro' ? Plan::factory()->pro() : Plan::factory();
+
+        return $factory->create(['codigo' => $codigo])->id;
     }
 }

@@ -58,4 +58,37 @@ class CobroTest extends TestCase
             ->postJson("/api/v1/cobros/{$cobro->id}/marcar-pagado")
             ->assertForbidden();
     }
+
+    /**
+     * Revisión de base de datos 2026-09-28: sin esta guardia, se podía marcar
+     * pagado un cobro que ya estaba pagado, reemitiendo un comprobante_sri
+     * duplicado para el mismo pago.
+     */
+    public function test_no_se_puede_marcar_pagado_un_cobro_que_ya_esta_pagado(): void
+    {
+        [, $token, $negocio] = $this->propietarioConNegocio();
+        $suscripcion = Suscripcion::factory()->create(['negocio_id' => $negocio->id]);
+        $cobro = Cobro::factory()->create(['suscripcion_id' => $suscripcion->id, 'estado' => 'pagado']);
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson("/api/v1/cobros/{$cobro->id}/marcar-pagado")
+            ->assertUnprocessable();
+    }
+
+    public function test_marcar_reembolsado_solo_funciona_desde_pagado(): void
+    {
+        [, $token, $negocio] = $this->propietarioConNegocio();
+        $suscripcion = Suscripcion::factory()->create(['negocio_id' => $negocio->id]);
+        $cobroPagado = Cobro::factory()->create(['suscripcion_id' => $suscripcion->id, 'estado' => 'pagado']);
+        $cobroPendiente = Cobro::factory()->create(['suscripcion_id' => $suscripcion->id, 'estado' => 'pendiente']);
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson("/api/v1/cobros/{$cobroPagado->id}/marcar-reembolsado")
+            ->assertOk()
+            ->assertJsonPath('estado', 'reembolsado');
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson("/api/v1/cobros/{$cobroPendiente->id}/marcar-reembolsado")
+            ->assertUnprocessable();
+    }
 }

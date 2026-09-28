@@ -12,6 +12,8 @@ use Illuminate\Database\Eloquent\Collection;
  */
 final readonly class AmenidadService
 {
+    public function __construct(private LocalService $locales) {}
+
     /**
      * @param  string|null  $categoriaCodigo  código de `amenidad_categoria`, no su id.
      */
@@ -42,6 +44,8 @@ final readonly class AmenidadService
         )->all();
 
         $local->amenidades()->sync($mapa);
+
+        $this->locales->invalidarPerfilPublico($local->id);
 
         return $local->amenidades()->with('categoria')->get();
     }

@@ -3,6 +3,7 @@
 namespace App\Modules\Identity\Application;
 
 use App\Models\Consentimiento;
+use App\Models\FinalidadConsentimiento;
 use App\Models\Usuario;
 
 /**
@@ -17,8 +18,14 @@ final readonly class RevocarConsentimiento
 {
     public function __invoke(Usuario $usuario, string $finalidad): ?Consentimiento
     {
+        $finalidadId = FinalidadConsentimiento::where('codigo', $finalidad)->value('id');
+
+        if ($finalidadId === null) {
+            return null;
+        }
+
         $vigente = Consentimiento::where('usuario_id', $usuario->id)
-            ->where('finalidad', $finalidad)
+            ->where('finalidad_id', $finalidadId)
             ->where('otorgado', true)
             ->whereNull('revocado_at')
             ->latest('otorgado_at')

@@ -4,10 +4,13 @@ namespace App\Modules\Scheduling\Application;
 
 use App\Models\Asignacion;
 use App\Models\Cita;
-use App\Models\ClienteLocal;
 use App\Models\ClientePerfil;
+use App\Models\Excepcion;
+use App\Models\Habilidad;
 use App\Models\Local;
+use App\Models\Mascota;
 use App\Models\Producto;
+use App\Models\Recurso;
 use App\Models\ServicioLocal;
 use App\Models\Usuario;
 use App\Modules\Scheduling\Application\Exceptions\SlotYaOcupado;
@@ -27,6 +30,8 @@ final readonly class CitaService
 {
     /** SQLSTATE de violación de un constraint EXCLUDE. */
     private const EXCLUSION_VIOLATION = '23P01';
+
+    public function __construct(private ResolucionPrecioServicio $precios) {}
 
     /**
      * Camino normal desde la app: hold en `reservada` con `expira_at = +10min`
@@ -62,6 +67,10 @@ final readonly class CitaService
      */
     public function agregarProducto(Cita $cita, Producto $producto, int $cantidad): Cita
     {
+        if ($producto->local_id !== $cita->local_id) {
+            throw_validacion('El producto no pertenece al local de esta cita.', 'producto_id');
+        }
+
         DB::transaction(function () use ($cita, $producto, $cantidad) {
             $cita->productos()->create([
                 'producto_id' => $producto->id,
@@ -78,19 +87,38 @@ final readonly class CitaService
 
     private function crear(Local $local, Usuario $cliente, array $datos, string $canal, bool $confirmadaDirecto = false): Cita
     {
-        $servicios = $this->cargarServicios($datos['servicios']);
-        $duracionTotal = (int) $servicios->sum('duracion_min') + (int) $servicios->max('buffer_min');
+        $servicios = $this->cargarServicios($local, $datos['servicios']);
+        $tamanoId = isset($datos['mascota_id']) ? Mascota::find($datos['mascota_id'])?->tamano_id : null;
+        $resueltos = $servicios->mapWithKeys(fn (ServicioLocal $s) => [$s->id => $this->precios->resolver($s, $tamanoId)]);
+        $duracionTotal = (int) $resueltos->sum('duracion_min') + (int) $servicios->max('buffer_min');
         $inicio = CarbonImmutable::parse($datos['inicio']);
         $fin = $inicio->addMinutes($duracionTotal);
+        $recursoId = $datos['recurso_id'] ?? null;
+
+        // Revisión de base de datos 2026-09-28: `DisponibilidadService` filtra
+        // bien para decidir qué MOSTRAR, pero nadie revalidaba esto al
+        // GUARDAR — un request que no pase por la pantalla de disponibilidad
+        // (o una condición de carrera) podía agendar en un horario bloqueado,
+        // con un profesional sin la habilidad, o con un recurso de otro local.
+        $this->verificarRecursoDelLocal($local, $recursoId);
+        $this->verificarHabilidades($datos['profesional_id'], $servicios);
+        $this->verificarSinExcepcion($local, $datos['profesional_id'], $recursoId, $inicio, $fin);
+
         $comisionPct = $this->comisionPct($local->id, $datos['profesional_id']);
-        $clienteNuevo = ! ClienteLocal::where('usuario_id', $cliente->id)->where('local_id', $local->id)->exists();
+        // Directo contra `Cita` (revisión de base de datos, 2026-09-29): antes
+        // dependía de que existiera una fila en `cliente_local`, que ahora ya
+        // no se crea automáticamente al completar (ver `CompletarCita`).
+        $clienteNuevo = ! Cita::where('cliente_id', $cliente->id)
+            ->where('local_id', $local->id)
+            ->where('estado', 'completada')
+            ->exists();
 
         $clientePerfil = ClientePerfil::where('usuario_id', $cliente->id)->first();
         $naceConfirmada = $confirmadaDirecto || (bool) ($clientePerfil?->requiere_confirmacion ?? false);
 
         try {
             $cita = DB::transaction(function () use (
-                $local, $cliente, $datos, $servicios, $inicio, $fin, $comisionPct, $clienteNuevo, $canal, $naceConfirmada,
+                $local, $cliente, $datos, $servicios, $resueltos, $inicio, $fin, $comisionPct, $clienteNuevo, $canal, $naceConfirmada,
             ) {
                 $cita = Cita::create([
                     'local_id' => $local->id,
@@ -101,7 +129,7 @@ final readonly class CitaService
                     'fin' => $fin,
                     'estado' => $naceConfirmada ? 'confirmada' : 'reservada',
                     'canal' => $canal,
-                    'precio_total' => $servicios->sum('precio'),
+                    'precio_total' => $resueltos->sum('precio'),
                     // DEFAULT 0 en Postgres, no en PHP — sin esto, `propina`
                     // queda `null` en memoria hasta un `fresh()` y
                     // `CompletarCita` sin propina explícita revienta el
@@ -121,8 +149,8 @@ final readonly class CitaService
                 foreach ($servicios as $servicio) {
                     $cita->items()->create([
                         'servicio_local_id' => $servicio->id,
-                        'precio' => $servicio->precio,
-                        'duracion_min' => $servicio->duracion_min,
+                        'precio' => $resueltos[$servicio->id]['precio'],
+                        'duracion_min' => $resueltos[$servicio->id]['duracion_min'],
                         'comisionable' => $servicio->comisionable,
                         'comision_pct' => $servicio->comisionable ? $comisionPct : 0,
                     ]);
@@ -144,15 +172,65 @@ final readonly class CitaService
         return $cita->load('items');
     }
 
-    private function cargarServicios(array $ids): Collection
+    private function cargarServicios(Local $local, array $ids): Collection
     {
-        $servicios = ServicioLocal::whereIn('id', $ids)->where('activo', true)->get();
+        $servicios = ServicioLocal::with('tamanos')
+            ->whereIn('id', $ids)
+            ->where('local_id', $local->id)
+            ->where('activo', true)
+            ->get();
 
         if ($servicios->count() !== count($ids)) {
-            throw_validacion('Alguno de los servicios pedidos no existe o no está activo.', 'servicios');
+            throw_validacion('Alguno de los servicios pedidos no existe, no está activo, o no pertenece a este local.', 'servicios');
         }
 
         return $servicios;
+    }
+
+    private function verificarRecursoDelLocal(Local $local, ?string $recursoId): void
+    {
+        if ($recursoId === null) {
+            return;
+        }
+
+        if (! Recurso::where('id', $recursoId)->where('local_id', $local->id)->exists()) {
+            throw_validacion('El recurso indicado no pertenece a este local.', 'recurso_id');
+        }
+    }
+
+    /** Filtro 3 del §5.1: el profesional debe tener habilidad para TODOS los servicios pedidos. */
+    private function verificarHabilidades(string $profesionalId, Collection $servicios): void
+    {
+        $conHabilidad = Habilidad::where('profesional_id', $profesionalId)
+            ->whereIn('servicio_local_id', $servicios->pluck('id'))
+            ->count();
+
+        if ($conHabilidad !== $servicios->count()) {
+            throw_validacion('El profesional no tiene la habilidad para alguno de los servicios pedidos.', 'servicios');
+        }
+    }
+
+    /** Filtro 4 del §5.1: ninguna excepción (local, profesional o recurso) puede cubrir esta ventana. */
+    private function verificarSinExcepcion(Local $local, string $profesionalId, ?string $recursoId, CarbonImmutable $inicio, CarbonImmutable $fin): void
+    {
+        $bloqueado = Excepcion::where(function ($query) use ($local, $profesionalId, $recursoId) {
+            $query->where('local_id', $local->id)
+                ->orWhere(function ($q) use ($profesionalId, $local) {
+                    $q->where('profesional_id', $profesionalId)
+                        ->where(fn ($q2) => $q2->whereNull('local_id')->orWhere('local_id', $local->id));
+                });
+
+            if ($recursoId !== null) {
+                $query->orWhere('recurso_id', $recursoId);
+            }
+        })
+            ->where('fecha_inicio', '<', $fin)
+            ->where('fecha_fin', '>', $inicio)
+            ->exists();
+
+        if ($bloqueado) {
+            throw_validacion('Este horario no está disponible.', 'inicio');
+        }
     }
 
     private function comisionPct(string $localId, string $profesionalId): float
