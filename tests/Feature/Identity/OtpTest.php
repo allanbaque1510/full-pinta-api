@@ -59,6 +59,7 @@ class OtpTest extends TestCase
         $respuesta->assertCreated()
             ->assertJsonPath('usuario.telefono', $telefono)
             ->assertJsonPath('usuario.nombre', 'Ana Pérez')
+            ->assertJsonPath('usuario.email_verificado', false)
             ->assertJsonStructure(['token']);
 
         $this->assertDatabaseHas('usuario', ['telefono' => $telefono, 'telefono_verificado' => true]);

@@ -91,6 +91,9 @@ final readonly class VerificarOtp
         $usuario = Usuario::create([
             'telefono' => $telefono,
             'telefono_verificado' => true,
+            // DEFAULT de Postgres, no de PHP — repetido explícito (ver skill
+            // `migracion`). Sin `email`, no hay nada que verificar todavía.
+            'email_verificado' => false,
             'nombre' => $nombre,
             'password_hash' => $this->hashInutilizable(),
         ]);

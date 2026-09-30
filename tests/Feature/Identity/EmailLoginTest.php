@@ -29,9 +29,16 @@ class EmailLoginTest extends TestCase
             ->assertCreated()
             ->assertJsonPath('usuario.email', 'ana@example.com')
             ->assertJsonPath('usuario.telefono_verificado', false)
+            // Regresión: `email_verificado` tiene DEFAULT false en Postgres,
+            // no en PHP — sin repetirlo en `RegistrarConEmail::crear()`, la
+            // respuesta HTTP (objeto recién creado en memoria) devolvía
+            // `null` en vez de `false` hasta el próximo `fresh()`.
+            ->assertJsonPath('usuario.email_verificado', false)
             ->assertJsonStructure(['token']);
 
-        $this->assertDatabaseHas('usuario', ['email' => 'ana@example.com', 'telefono_verificado' => false]);
+        $this->assertDatabaseHas('usuario', [
+            'email' => 'ana@example.com', 'telefono_verificado' => false, 'email_verificado' => false,
+        ]);
     }
 
     public function test_no_se_puede_registrar_dos_veces_con_el_mismo_email(): void

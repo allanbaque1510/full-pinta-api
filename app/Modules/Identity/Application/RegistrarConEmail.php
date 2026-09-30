@@ -28,6 +28,10 @@ final readonly class RegistrarConEmail
         $usuario = Usuario::create([
             'nombre' => $datos['nombre'],
             'email' => $datos['email'],
+            // DEFAULT de Postgres en las dos, no en PHP — sin esto, un
+            // usuario recién creado devuelve `null` en vez de `false` hasta
+            // el próximo `fresh()` (ver skill `migracion`).
+            'email_verificado' => false,
             'password_hash' => Hash::make($datos['password']),
             'telefono' => $datos['telefono'],
             'telefono_verificado' => false,

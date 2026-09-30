@@ -316,17 +316,26 @@ Un solo endpoint hace de alta y baja: si ya era favorito, lo quita; si no, lo ag
 
 ### `POST /negocios` 🔒
 
-Crea un negocio y convierte a quien lo crea en su propietario (§4.4) — provisiona `negocio_miembro(rol: propietario, local_id: null)` en la misma transacción.
+Crea un negocio y convierte a quien lo crea en su propietario (§4.4) — provisiona `negocio_miembro(rol: propietario, local_id: null)` en la misma transacción. Cualquier cuenta autenticada puede crear el suyo, sin límite de cuántos.
 
 **Body**: `{ "nombre_marca": "Barbería Kevin", "ruc": "1234567890001" }` (`ruc` opcional, 13 dígitos).
 
-**201** — el negocio creado, `plan: "free"` por defecto.
+**201** (mismo shape en `GET`/`PATCH` de abajo):
+```json
+{
+  "id": "uuid", "nombre_marca": "Barbería Kevin", "ruc": "1234567890001",
+  "ruc_verificado": false, "ruc_verificado_at": null,
+  "propietario_id": "uuid", "logo_url": null, "portada_url": null,
+  "plan": "free", "plan_vigente_hasta": null
+}
+```
+Nace siempre en plan `free` — activar un plan pagado es `POST /negocios/{negocio}/suscripcion` (ver Billing), no un campo de esta creación.
 
 ### `GET /negocios/{negocio}` 🔒 · `PATCH /negocios/{negocio}` 🔒
 
-Solo propietario o admin del negocio (§3.2). `PATCH` acepta `nombre_marca` y/o `ruc`.
+Solo propietario o admin del negocio (§3.2). `PATCH` acepta `nombre_marca` y/o `ruc`, ambos opcionales.
 
-**200**: incluye `ruc_verificado`/`ruc_verificado_at` y `logo_url`/`portada_url` (derivados de la galería polimórfica `imagen`, §4.4) — de solo lectura todavía: no existe ningún endpoint para subir el logo/portada ni para verificar el RUC (mismo alcance pendiente que la moderación de `reporte`).
+`ruc_verificado`/`ruc_verificado_at` y `logo_url`/`portada_url` (derivados de la galería polimórfica `imagen`, §4.4) son de solo lectura todavía: no existe ningún endpoint para subir el logo/portada ni para verificar el RUC (mismo alcance pendiente que la moderación de `reporte`).
 
 ### `POST /negocios/{negocio}/locales` 🔒 · `GET /negocios/{negocio}/locales` 🔒
 
@@ -335,9 +344,10 @@ Crear: solo propietario/admin. Listar: cualquier miembro con rol vigente (propie
 **Body de creación**:
 ```json
 { "nombre": "Sucursal Alborada", "direccion": "Av. Principal 123", "referencia": "diagonal al parque",
-  "lat": -2.1300, "lng": -79.8862, "telefono": "042345678", "whatsapp": "0991234567" }
+  "lat": -2.1300, "lng": -79.8862, "telefono": "042345678", "whatsapp": "0991234567",
+  "lead_time_min": 60, "horizonte_dias": 30, "politica_cancelacion_horas": 2 }
 ```
-`lat`/`lng` son números planos, no un objeto anidado. El local nace en `estado: "borrador"` — no aparece en búsquedas hasta activarlo.
+Solo `nombre`/`direccion`/`lat`/`lng` obligatorios. `lat`/`lng` son números planos, no un objeto anidado. `telefono`/`whatsapp`/`referencia` opcionales, sin default. `lead_time_min`/`horizonte_dias`/`politica_cancelacion_horas` opcionales — si no se mandan, Postgres aplica `60`/`30`/`2` (§5.1: cuánto antes hay que reservar, hasta cuántos días a futuro se puede agendar, y cuántas horas antes se puede cancelar sin penalidad). El local nace en `estado: "borrador"` — no aparece en búsquedas ni acepta citas hasta `POST /locales/{local}/activar`, y todavía sin ningún servicio/horario cargado (ver las secciones de Catalog y "Horarios del local" más abajo) no tendrá ningún slot real que ofrecer aunque se active.
 
 ### `GET /locales/{local}` 🔒 · `PATCH /locales/{local}` 🔒
 

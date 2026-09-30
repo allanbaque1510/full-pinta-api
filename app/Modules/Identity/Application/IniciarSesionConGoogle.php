@@ -46,7 +46,14 @@ final readonly class IniciarSesionConGoogle
             $usuario = Usuario::where('email', $claims['email'])->first();
 
             $usuario = $usuario !== null
-                ? tap($usuario)->update(['google_id' => $claims['sub']])
+                ? tap($usuario)->update([
+                    'google_id' => $claims['sub'],
+                    // El token de Google ya prueba propiedad del correo — si
+                    // Google lo marca verificado y la cuenta todavía no lo
+                    // estaba, se actualiza de paso. Nunca se degrada a false
+                    // (un correo ya verificado por otro medio se queda así).
+                    'email_verificado' => $usuario->email_verificado || $claims['email_verified'],
+                ])
                 : $this->registrar($claims, $telefono);
         }
 
@@ -69,6 +76,9 @@ final readonly class IniciarSesionConGoogle
             'telefono_verificado' => false,
             'google_id' => $claims['sub'],
             'email' => $claims['email'],
+            // A diferencia de OTP/correo, acá sí hay una fuente real: Google
+            // ya verificó este correo antes de emitir el token.
+            'email_verificado' => $claims['email_verified'],
             'nombre' => $claims['name'] !== '' ? $claims['name'] : 'Usuario de Google',
             // Igual que OTP: no se autentica por contraseña, este hash solo
             // saca a la fila del estado "cliente sombra sin reclamar".
