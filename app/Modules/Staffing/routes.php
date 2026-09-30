@@ -27,6 +27,11 @@ Route::middleware('auth:sanctum')->group(function () {
         ->shallow()
         ->except(['destroy']);
 
+    // Vincular/cambiar la cuenta de acceso de un profesional (§4.6) — solo
+    // quien administra el local, nunca el propio profesional (ver
+    // `ProfesionalPolicy::vincularCuenta`).
+    Route::post('profesionales/{profesional}/vincular-cuenta', [ProfesionalController::class, 'vincularCuenta']);
+
     // Galería polimórfica compartida con Directory (§4.4, revisión de base de
     // datos, 2026-09-28): `update`/`destroy` (`imagenes/{imagen}`) ya se
     // registran una sola vez desde `Directory/routes.php` — declararlas de

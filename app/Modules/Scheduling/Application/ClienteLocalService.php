@@ -4,6 +4,7 @@ namespace App\Modules\Scheduling\Application;
 
 use App\Models\Asignacion;
 use App\Models\ClienteLocal;
+use App\Models\ClientePerfil;
 use App\Models\Local;
 use App\Models\Usuario;
 use Carbon\CarbonImmutable;
@@ -25,18 +26,28 @@ final readonly class ClienteLocalService
 
     /**
      * Ficha individual: `nota`/`profesional_preferido` (dato del local, nunca
-     * visible a otro local, §3.3) + el resumen de visitas calculado en vivo.
+     * visible a otro local, §3.3) + el resumen de visitas calculado en vivo +
+     * la confiabilidad del cliente (§5.6) — uso interno del staff, nunca se
+     * expone como puntaje al propio cliente (no hay endpoint de "mi perfil
+     * de confiabilidad"). `no_shows`/`cancelaciones_tardias`/`requiere_confirmacion`
+     * son de la PLATAFORMA completa, no de este local — `cliente_perfil` es
+     * una fila por usuario, no por (usuario, local): un no-show en otro local
+     * también importa acá.
      *
-     * @return array{nota: ?string, profesional_preferido_id: ?string, total_citas: int, primera_cita_at: ?string, ultima_cita_at: ?string}
+     * @return array{nota: ?string, profesional_preferido_id: ?string, total_citas: int, primera_cita_at: ?string, ultima_cita_at: ?string, no_shows: int, cancelaciones_tardias: int, requiere_confirmacion: bool}
      */
     public function ficha(Local $local, Usuario $cliente): array
     {
         $clienteLocal = ClienteLocal::where('usuario_id', $cliente->id)->where('local_id', $local->id)->first();
+        $clientePerfil = ClientePerfil::where('usuario_id', $cliente->id)->first();
 
         return [
             'nota' => $clienteLocal?->nota,
             'profesional_preferido_id' => $clienteLocal?->profesional_preferido_id,
             ...$this->resumenVisitas($cliente->id, $local->id),
+            'no_shows' => $clientePerfil?->no_shows ?? 0,
+            'cancelaciones_tardias' => $clientePerfil?->cancelaciones_tardias ?? 0,
+            'requiere_confirmacion' => $clientePerfil?->requiere_confirmacion ?? false,
         ];
     }
 

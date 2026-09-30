@@ -94,7 +94,15 @@ final readonly class DisponibilidadService
                         $recursoId = $recurso->id;
                     }
 
-                    $slots->push(new Slot($profesional->id, $recursoId, $candidato, $finCandidato));
+                    $slots->push(new Slot(
+                        $profesional->id,
+                        $profesional->nombre,
+                        $profesional->alias,
+                        $profesional->fotoPerfil?->url,
+                        $recursoId,
+                        $candidato,
+                        $finCandidato,
+                    ));
                     $candidato = $candidato->addMinutes(self::GRANULARIDAD_MINUTOS);
                 }
             }
@@ -371,7 +379,7 @@ final readonly class DisponibilidadService
      */
     private function profesionalesElegibles(Local $local, CarbonImmutable $fecha, array $servicioLocalIds, ?string $profesionalId): EloquentCollection
     {
-        $query = Profesional::whereHas(
+        $query = Profesional::with('fotoPerfil')->whereHas(
             'asignaciones',
             fn ($q) => $q->where('local_id', $local->id)->vigenteEn($fecha),
         );

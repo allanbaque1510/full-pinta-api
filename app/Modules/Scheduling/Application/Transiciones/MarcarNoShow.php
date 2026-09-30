@@ -35,14 +35,17 @@ final readonly class MarcarNoShow
         DB::transaction(function () use ($cita) {
             $cita->update(['estado' => 'no_show']);
 
-            $clientePerfil = ClientePerfil::where('usuario_id', $cita->cliente_id)->first();
+            // `firstOrCreate`, no `where(...)->first()`: nada crea
+            // `cliente_perfil` al registrar un usuario (a propósito — no todo
+            // usuario llega a agendar), así que buscar-y-quizás-null dejaba
+            // esta métrica completa (no_shows y, por extensión,
+            // requiere_confirmacion) sin moverse nunca para nadie. Bug real
+            // encontrado probando el flujo completo en vivo, 2026-09-30.
+            $clientePerfil = ClientePerfil::firstOrCreate(['usuario_id' => $cita->cliente_id]);
+            $clientePerfil->increment('no_shows');
 
-            if ($clientePerfil !== null) {
-                $clientePerfil->increment('no_shows');
-
-                if ($clientePerfil->no_shows >= self::NO_SHOWS_PARA_REQUERIR_CONFIRMACION) {
-                    $clientePerfil->update(['requiere_confirmacion' => true]);
-                }
+            if ($clientePerfil->no_shows >= self::NO_SHOWS_PARA_REQUERIR_CONFIRMACION) {
+                $clientePerfil->update(['requiere_confirmacion' => true]);
             }
         });
 

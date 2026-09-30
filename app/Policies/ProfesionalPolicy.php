@@ -20,9 +20,30 @@ class ProfesionalPolicy
         return $this->loAdministra($usuario, $profesional);
     }
 
+    /**
+     * Editar su propia ficha (bio/alias/foto/perfil_publico/traslado_min) y
+     * bloquear su propio horario (`CrearExcepcionProfesionalRequest` usa este
+     * mismo método) — el profesional puede hacer las dos cosas sobre sí
+     * mismo, además de quien administra el local (§3.2).
+     */
     public function actualizar(Usuario $usuario, Profesional $profesional): bool
     {
+        return $this->loAdministra($usuario, $profesional) || $this->esElMismo($usuario, $profesional);
+    }
+
+    /**
+     * Vincular/cambiar la cuenta de este profesional — deliberadamente SIN
+     * `esElMismo()`: nunca el propio profesional, para que nadie pueda
+     * robarse o desvincularse el acceso a sí mismo.
+     */
+    public function vincularCuenta(Usuario $usuario, Profesional $profesional): bool
+    {
         return $this->loAdministra($usuario, $profesional);
+    }
+
+    private function esElMismo(Usuario $usuario, Profesional $profesional): bool
+    {
+        return $usuario->profesional?->id === $profesional->id;
     }
 
     private function loAdministra(Usuario $usuario, Profesional $profesional): bool

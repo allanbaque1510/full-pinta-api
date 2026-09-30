@@ -38,4 +38,10 @@ class NegocioPolicy
     {
         return $negocio->propietario_id === $usuario->id;
     }
+
+    /** Agregar/listar/terminar miembros (`negocio_miembro`) — mismo nivel que editar el negocio. */
+    public function gestionarMiembros(Usuario $usuario, Negocio $negocio): bool
+    {
+        return $this->ver($usuario, $negocio);
+    }
 }

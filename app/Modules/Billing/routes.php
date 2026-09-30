@@ -26,4 +26,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('locales/{local}/liquidaciones', [LiquidacionController::class, 'store']);
     Route::post('liquidaciones/{liquidacion}/cerrar', [LiquidacionController::class, 'cerrar']);
     Route::post('liquidaciones/{liquidacion}/marcar-pagada', [LiquidacionController::class, 'marcarPagada']);
+
+    // Sus propias comisiones (§3.2) — solo el propio profesional, nunca
+    // propietario/admin de otro local que también lo emplee (ver docblock de
+    // `LiquidacionPolicy::verPropias`).
+    Route::get('profesionales/{profesional}/liquidaciones', [LiquidacionController::class, 'indexProfesional']);
 });

@@ -59,6 +59,30 @@ class CitaController extends Controller
         });
     }
 
+    /**
+     * Agenda propia del profesional (§3.2) — cruza todos los locales donde
+     * trabaja, igual que `misCitas()` no se limita a uno para el cliente.
+     */
+    public function misCitasProfesional(Request $request): JsonResponse
+    {
+        return $this->ejecutar(function () use ($request) {
+            $profesional = $request->user()->profesional;
+
+            if ($profesional === null) {
+                return response_error(403, 'no_es_profesional', 'Esta cuenta no tiene un perfil de profesional vinculado.');
+            }
+
+            $citas = Cita::where('profesional_id', $profesional->id)
+                ->with(['items', 'productos', 'cliente'])
+                ->when($request->query('estado'), fn ($q, $estado) => $q->where('estado', $estado))
+                ->when($request->query('local_id'), fn ($q, $localId) => $q->where('local_id', $localId))
+                ->orderByDesc('inicio')
+                ->get();
+
+            return CitaResource::collection($citas);
+        });
+    }
+
     public function show(Cita $cita): JsonResponse
     {
         return $this->ejecutar(function () use ($cita) {

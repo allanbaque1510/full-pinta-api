@@ -8,6 +8,7 @@ use App\Models\Profesional;
 use App\Modules\Staffing\Application\ProfesionalService;
 use App\Modules\Staffing\Http\Requests\ActualizarProfesionalRequest;
 use App\Modules\Staffing\Http\Requests\CrearProfesionalRequest;
+use App\Modules\Staffing\Http\Requests\VincularCuentaProfesionalRequest;
 use App\Modules\Staffing\Http\Resources\ProfesionalResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -27,7 +28,7 @@ class ProfesionalController extends Controller
     {
         return $this->ejecutar(fn () => ProfesionalResource::make($profesionales->crearConAsignacion(
             $local,
-            $request->safe()->only(['nombre', 'alias', 'bio', 'foto_url', 'perfil_publico', 'traslado_min']),
+            $request->safe()->only(['nombre', 'alias', 'bio', 'foto_url', 'perfil_publico', 'traslado_min', 'telefono']),
             $request->safe()->only(['rol', 'modalidad', 'comision_pct', 'desde']),
         )), 201);
     }
@@ -58,5 +59,12 @@ class ProfesionalController extends Controller
     public function update(ActualizarProfesionalRequest $request, Profesional $profesional, ProfesionalService $profesionales): JsonResponse
     {
         return $this->ejecutar(fn () => ProfesionalResource::make($profesionales->actualizar($profesional, $request->validated())));
+    }
+
+    public function vincularCuenta(VincularCuentaProfesionalRequest $request, Profesional $profesional, ProfesionalService $profesionales): JsonResponse
+    {
+        return $this->ejecutar(fn () => ProfesionalResource::make(
+            $profesionales->vincularCuenta($profesional, $request->validated('telefono')),
+        ));
     }
 }

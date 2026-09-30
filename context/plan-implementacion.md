@@ -270,6 +270,45 @@ Fuera de la v1 como función cobrada (§15.2, §9.7) — pero el código se cons
 
 ---
 
+## Hallazgos pendientes — auditoría de roles y permisos (2026-09-30)
+
+Repasado el flujo completo desde las 4 perspectivas (cliente, barbero, recepción, dueño) contra la matriz del §3.2. No son tests rotos — son endpoints/autorización que nunca se construyeron.
+
+- [x] **El profesional no puede usar la app como sí mismo, en ninguna capacidad.** Implementado 2026-09-30, según el diseño acordado (5 partes):
+  - **Vínculo cuenta↔profesional**: `telefono` opcional en `POST /locales/{local}/profesionales` (vincula de una vez) + `POST /profesionales/{profesional}/vincular-cuenta` (para uno ya existente) — resuelve por teléfono de una cuenta ya registrada, mismo criterio que `negocio_miembro`. `ProfesionalPolicy::vincularCuenta()` nueva, **siempre** `loAdministra()`, nunca el propio profesional (no puede vincularse/cambiarse el acceso a sí mismo). Guarda contra vincular una cuenta ya vinculada a otro profesional (`usuario_id` es único).
+  - **Agenda propia**: `GET /mis-citas-profesional` nuevo (cruza todos los locales donde trabaja, igual que `GET /mis-citas` del cliente) — `403 no_es_profesional` si la cuenta no tiene `Profesional` vinculado.
+  - **`ProfesionalPolicy::actualizar()`** ampliada con `esElMismo()` — un solo cambio habilita dos cosas: `PATCH /profesionales/{profesional}` (su propia ficha) y `CrearExcepcionProfesionalRequest` (bloquear su propio horario), que ya usaba ese mismo método.
+  - **`CitaPolicy::ver()`/`gestionar()`** ampliadas con `esElProfesionalAsignado()` — puede ver, completar, marcar no-show e iniciar sus propias citas, nunca las de un colega.
+  - **`LiquidacionPolicy::verPropias()`** nueva + `GET /profesionales/{profesional}/liquidaciones` — deliberadamente **solo el propio profesional**, ni propietario/admin (ya tienen el endpoint por local; abrir este también a ellos cruzaría datos de otro negocio si el profesional trabaja en varios locales).
+
+  37 tests nuevos (`ProfesionalCuentaTest`, `ProfesionalPropiaCitaTest`, más casos agregados a `ExcepcionTest`/`LiquidacionTest`). `docs/api-referencia.md` actualizado en las 4 secciones que tocó (Profesionales, Citas, Excepciones, Liquidaciones).
+
+  **Bug de test encontrado de paso**: `ConcurrenciaCitaTest` (sin `RefreshDatabase`, real commits) creaba un `Negocio` vía factory, y `NegocioFactory::planId('free')` se autocura creando un plan `free` real y permanente si no existía uno — nunca se limpiaba en su `tearDown()`. Cualquier test que corriera después en el mismo proceso PHPUnit y asumiera una base limpia (`Plan::factory()->create(['codigo' => 'free'])` a secas, en vez de `firstOrCreate`) chocaba con un `23505`. Corregido: el `tearDown()` ahora borra el plan `free` que él mismo causó, solo si no existía antes.
+
+- [x] **Falta el endpoint para agregar `admin`/`recepcion` a un negocio.** Implementado 2026-09-30, según el diseño acordado: `POST /negocios/{negocio}/miembros` (resuelve por `telefono` de una cuenta ya registrada, `rol` en `admin|recepcion`, `local_id` opcional validado contra el propio negocio), `GET /negocios/{negocio}/miembros` (listar), `POST /miembros/{miembro}/terminar` (revoca con `hasta = hoy`, nunca borra; guarda contra terminar al propietario legal). `NegocioPolicy::gestionarMiembros()` nueva (mismo nivel que `actualizar`/`crearLocal`). `NegocioMiembroService`/`Controller`/`Request`/`Resource` nuevos en Directory. 10 tests nuevos (`NegocioMiembroTest`), incluido uno que confirma que el recepcionista recién agregado ya puede actuar con su rol de inmediato. `docs/api-referencia.md` actualizado.
+
+- [x] **El cliente no tiene forma pública de "elegir barbero viendo cortes"**, aunque la propia especificación (§4.6) lo llama *"probablemente el mejor mecanismo de descubrimiento del producto"*. **§16.1 confirmado con el usuario 2026-09-30**: público + reseña separada (ya estaban construidos de una fase anterior, sin que quedara anotado como decisión confirmada — `Profesional.perfil_publico`, `GET /profesionales/{profesional}/perfil-publico` y `puntaje_profesional` en la reseña ya existían) — y **sin notificación automática a sus clientes cuando se muda de local** (confirmado; hoy no existe ningún mecanismo así, Notifications no está conectado a proveedores reales todavía). Faltaba la parte "buscable", implementada ahora:
+  - `LocalService::perfilPublico()` gana `profesionales`: roster liviano (nombre/alias/foto/promedio de reseñas), solo perfiles `perfil_publico: true` con asignación vigente — consultado directo contra los modelos compartidos (mismo criterio que `BusquedaLocalService` con Catalog), no llamando a `ProfesionalService` (Staffing) desde Directory.
+  - `Slot`/`SlotResource` (disponibilidad) ganan `profesional_nombre`/`profesional_alias`/`profesional_foto_url` — antes el slot traía el UUID pelado, sin cómo saber quién es quién. Sin N+1: los profesionales ya se cargaban una sola vez en `profesionalesElegibles()`, solo se agregó `->with('fotoPerfil')`.
+
+  4 tests nuevos (`PerfilPublicoLocalTest`, `DisponibilidadTest`). `docs/api-referencia.md` actualizado en ambas secciones.
+
+- [x] **El cliente no puede editar su propio perfil.** Implementado 2026-09-30: `PATCH /cuenta/perfil` (`nombre`/`género`/`fecha_nacimiento`/`foto_url`, los cuatro opcionales — `telefono`/`email` quedan fuera, cada uno con su propio flujo de verificación). `ActualizarMiPerfil` nuevo (Identity), reusa `ImagenService::establecerFotoPerfil()` para la foto. `UsuarioResource` ganó `genero`/`fecha_nacimiento` (antes ausentes de toda respuesta de auth). 7 tests nuevos (`ActualizarMiPerfilTest`). `docs/api-referencia.md` actualizado, incluido el shape canónico de `usuario`.
+
+Ninguno de los cuatro bloquea a los demás — son features independientes, priorizables por separado.
+
+### Verificando el flujo completo en vivo (2026-09-30): 2 bugs reales, ya corregidos
+
+Se armó un negocio/local/profesional/servicio de punta a punta contra el servidor real (no solo tests) y se siguió el ciclo completo: agendar → confirmar → iniciar → agregar producto → completar → reseñar → liquidar. Aparecieron dos bugs que el suite automatizado (555 tests) nunca detectó porque los tests existentes pre-armaban a mano el estado que el bug se saltaba.
+
+- [x] **`LiquidacionService::cerrar()` podía cerrar con los totales en cero.** El controller aplicaba `->endOfDay()` a `periodo_hasta` al generar el borrador; `cerrar()` releía la columna ya persistida (cast `date`, medianoche) sin repetir ese ajuste, así que cualquier cita completada después de medianoche del último día del periodo quedaba fuera del recálculo final. Corregido moviendo la normalización a `sumarPeriodo()` (el método compartido), no a cada llamador. Test de regresión: `LiquidacionTest::test_cerrar_conserva_los_montos_de_una_cita_completada_tarde_el_ultimo_dia_del_periodo`.
+
+- [x] **`cliente_perfil.no_shows`/`cancelaciones_tardias` nunca se incrementaban para ningún cliente real**, y por lo tanto la regla del §5.6 ("al 3er no-show, confirmación obligatoria") estaba muerta en producción. Causa: nada crea `cliente_perfil` al registrar un usuario (a propósito — no todo usuario llega a agendar); `MarcarNoShow`/`CancelarCita` hacían `ClientePerfil::where(...)->first()`/`->increment()`, que sobre una fila inexistente no hace nada, sin error. **Los 555 tests pasaban** porque todos pre-creaban la fila con la factory antes de probar — nunca se ejercitó el camino real. Corregido con `firstOrCreate()` en los dos lugares. Tests de regresión sin pre-crear la fila: `MarcarNoShowTest::test_funciona_aunque_el_cliente_nunca_tuvo_fila_en_cliente_perfil`, `CancelarCitaTest::test_cancelacion_tardia_funciona_aunque_el_cliente_nunca_tuvo_fila_en_cliente_perfil`.
+
+- [x] **Bonus, a pedido del usuario**: una vez arreglado el tracking de arriba, se agregó `no_shows`/`cancelaciones_tardias`/`requiere_confirmacion` a `GET /locales/{local}/clientes/{usuario}` (la ficha del cliente) — antes no había ningún endpoint que expusiera esta info ni siquiera al staff. Son de la plataforma completa (`cliente_perfil` es una fila por usuario, no por local), nunca al propio cliente.
+
+---
+
 ## Bloqueadores externos
 
 No dependen del código y conviene empezarlos ya:
@@ -288,8 +327,8 @@ No dependen del código y conviene empezarlos ya:
 Ninguna es técnica; todas cambian el producto.
 
 - [ ] **§16.4 — ¿comisión sobre precio lleno o con descuento?** Afecta la Fase 6. La especificación insiste en decidirlo ahora: *"cambiarlo después es cambiarle la plata a la gente"*
-- [ ] **§16.1 — ¿perfil del profesional público y buscable?** Afecta las Fases 7 y 8
-- [ ] §16.2 — ¿reseña del profesional además del local?
+- [x] **§16.1 — ¿perfil del profesional público y buscable?** Confirmado 2026-09-30, siguiendo la recomendación de la spec: público, reseña separada, sin notificación automática a sus clientes cuando se muda de local. Ver el detalle en "Hallazgos pendientes" de arriba.
+- [x] §16.2 — ¿reseña del profesional además del local? Confirmado junto con §16.1: sí, separadas (`puntaje_profesional` ya existía en `resena`, independiente de `puntaje_local`).
 - [ ] §16.3 — ¿precio por profesional en la v1?
 - [ ] §16.6 — ¿cuándo se activa grooming? Si se activa, revisar si `vertical` merece tabla propia (§4.5)
 

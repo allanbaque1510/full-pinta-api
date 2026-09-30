@@ -12,6 +12,7 @@ use App\Modules\Directory\Http\Controllers\HorarioLocalController;
 use App\Modules\Directory\Http\Controllers\LocalAmenidadController;
 use App\Modules\Directory\Http\Controllers\LocalController;
 use App\Modules\Directory\Http\Controllers\NegocioController;
+use App\Modules\Directory\Http\Controllers\NegocioMiembroController;
 use Illuminate\Support\Facades\Route;
 
 // Público: el catálogo de amenidades lo define la plataforma, no hace falta
@@ -27,6 +28,13 @@ Route::middleware('auth:sanctum')->group(function () {
     // No hay `index` (listar TODOS los negocios sería un leak de datos de
     // negocio) ni `destroy` (un negocio no se borra, ver §4.2).
     Route::apiResource('negocios', NegocioController::class)->only(['store', 'show', 'update']);
+
+    // Acceso real a la app (admin/recepción), no la ficha de trabajo del
+    // profesional — ver docblock de `NegocioMiembroController`. Resuelve por
+    // `telefono` de una cuenta ya registrada, sin invitación por link en v1.
+    Route::get('negocios/{negocio}/miembros', [NegocioMiembroController::class, 'index']);
+    Route::post('negocios/{negocio}/miembros', [NegocioMiembroController::class, 'store']);
+    Route::post('miembros/{miembro}/terminar', [NegocioMiembroController::class, 'terminar']);
 
     // Nido "shallow": crear/listar locales cuelga del negocio
     // (`negocios/{negocio}/locales`), pero ver/editar un local ya no necesita

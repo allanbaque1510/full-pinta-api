@@ -39,20 +39,22 @@ final readonly class ProfesionalService
     /**
      * @param  array{
      *     nombre: string, alias?: ?string, bio?: ?string, foto_url?: ?string,
-     *     perfil_publico?: bool, traslado_min?: int,
+     *     perfil_publico?: bool, traslado_min?: int, telefono?: ?string,
      * }  $datosProfesional
      * @param  array{rol: string, modalidad: string, comision_pct: float, desde?: string}  $datosAsignacion
      */
     public function crearConAsignacion(Local $local, array $datosProfesional, array $datosAsignacion): Profesional
     {
         $fotoUrl = $datosProfesional['foto_url'] ?? null;
-        unset($datosProfesional['foto_url']);
+        $telefono = $datosProfesional['telefono'] ?? null;
+        unset($datosProfesional['foto_url'], $datosProfesional['telefono']);
 
-        return DB::transaction(function () use ($local, $datosProfesional, $datosAsignacion, $fotoUrl) {
+        return DB::transaction(function () use ($local, $datosProfesional, $datosAsignacion, $fotoUrl, $telefono) {
             $profesional = Profesional::create([
                 // Con DEFAULT en Postgres, no en PHP — ver skill `migracion`.
                 'perfil_publico' => true,
                 'traslado_min' => 30,
+                'usuario_id' => $telefono !== null ? $this->resolverUsuarioParaVincular($telefono) : null,
                 ...$datosProfesional,
             ]);
 
@@ -83,6 +85,42 @@ final readonly class ProfesionalService
         $profesional->update($datos);
 
         return $profesional->load('fotoPerfil');
+    }
+
+    /**
+     * Vincula (o cambia) la cuenta de este profesional — desde acá puede
+     * iniciar sesión y ver su propia agenda/comisiones. Deliberadamente NO
+     * accesible desde `actualizar()`: solo quien administra el local puede
+     * tocar este vínculo, nunca el propio profesional (`ProfesionalPolicy::
+     * vincularCuenta()`), para que nadie pueda robarse/cambiarse el de otro.
+     */
+    public function vincularCuenta(Profesional $profesional, string $telefono): Profesional
+    {
+        $profesional->update(['usuario_id' => $this->resolverUsuarioParaVincular($telefono)]);
+
+        return $profesional->load('fotoPerfil');
+    }
+
+    /**
+     * Resuelve por `telefono` una cuenta YA registrada — mismo criterio que
+     * `NegocioMiembroService::agregar()`, sin invitación por link en esta v1.
+     */
+    private function resolverUsuarioParaVincular(string $telefono): string
+    {
+        $usuarioId = Usuario::where('telefono', $telefono)->value('id');
+
+        if ($usuarioId === null) {
+            throw_validacion('Esa persona debe registrarse en la app primero.', 'telefono');
+        }
+
+        // `profesional.usuario_id` es UNIQUE (§4.6): sin este chequeo, vincular
+        // una cuenta ya vinculada a otro profesional revienta con un 500 de
+        // violación de constraint en vez de un 422 legible.
+        if (Profesional::where('usuario_id', $usuarioId)->exists()) {
+            throw_validacion('Esa cuenta ya está vinculada a otro perfil de profesional.', 'telefono');
+        }
+
+        return $usuarioId;
     }
 
     /**

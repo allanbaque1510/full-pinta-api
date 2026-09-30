@@ -3,21 +3,28 @@
 namespace App\Modules\Identity\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Identity\Application\ActualizarMiPerfil;
 use App\Modules\Identity\Application\AnonimizarUsuario;
 use App\Modules\Identity\Application\ConfirmarVerificacionEmail;
 use App\Modules\Identity\Application\SolicitarVerificacionEmail;
+use App\Modules\Identity\Http\Requests\ActualizarMiPerfilRequest;
 use App\Modules\Identity\Http\Requests\ConfirmarVerificacionEmailRequest;
 use App\Modules\Identity\Http\Resources\UsuarioResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 /**
- * Autogestión de la cuenta: derecho de eliminación (§13.1) y verificación de
- * propiedad del email. El resto del perfil (foto, nombre) se gestiona por
- * Directory/Identity según corresponda cuando existan esas pantallas.
+ * Autogestión de la cuenta: perfil propio, derecho de eliminación (§13.1) y
+ * verificación de propiedad del email. `telefono`/`email` no se editan por
+ * acá — cada uno tiene su propio flujo de verificación.
  */
 class CuentaController extends Controller
 {
+    public function actualizarPerfil(ActualizarMiPerfilRequest $request, ActualizarMiPerfil $actualizar): JsonResponse
+    {
+        return $this->ejecutar(fn () => UsuarioResource::make($actualizar($request->user(), $request->validated())));
+    }
+
     /**
      * Derecho de eliminación. No borra la fila — el historial de citas cuelga
      * de este `usuario_id` (§4.2) — la anonimiza y revoca sus tokens.

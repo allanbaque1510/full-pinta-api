@@ -8,6 +8,7 @@ use App\Models\Habilidad;
 use App\Models\HorarioLocal;
 use App\Models\Local;
 use App\Models\Negocio;
+use App\Models\Plan;
 use App\Models\Profesional;
 use App\Models\Rubro;
 use App\Models\ServicioCategoria;
@@ -221,6 +222,13 @@ class ConcurrenciaCitaTest extends TestCase
             'activo' => true,
         ]);
 
+        // Mismo caso que `CatalogoServicio`/`TipoRecurso` arriba, con otro
+        // catálogo: `NegocioFactory::definition()` resuelve/crea el plan
+        // `free` como efecto colateral (`self::planId('free')`) si todavía
+        // no existe uno — hay que saber si ya existía ANTES de crear el
+        // negocio, para no borrar en el cleanup un plan que no es nuestro.
+        $planFreeYaExistia = Plan::where('codigo', 'free')->exists();
+
         $local = Local::factory()->sinLeadTime()->create();
         // `Local::factory()` crea un `Negocio` por defecto si no se le pasa
         // `negocio_id`, y `Negocio::factory()` a su vez crea un `Usuario`
@@ -241,7 +249,7 @@ class ConcurrenciaCitaTest extends TestCase
         $usuario = Usuario::factory()->create();
         $token = $usuario->createToken('t')->plainTextToken;
 
-        $this->limpieza = function () use ($local, $negocio, $catalogo, $categoria, $rubro, $profesional, $usuario) {
+        $this->limpieza = function () use ($local, $negocio, $catalogo, $categoria, $rubro, $profesional, $usuario, $planFreeYaExistia) {
             DB::table('cita')->where('local_id', $local->id)->delete();
             // Cascada: horario_local, asignacion (y su turno), servicio_local, recurso.
             $local->delete();
@@ -249,6 +257,17 @@ class ConcurrenciaCitaTest extends TestCase
             // de poder borrar el negocio (y, con él, a su dueño).
             $negocio->delete();
             $negocio->propietario->delete();
+
+            // Solo si el plan `free` no existía antes de este test — si no,
+            // quedaba huérfano para siempre (sin `RefreshDatabase` que lo
+            // revierta) y cualquier test posterior en el mismo proceso que
+            // hiciera `Plan::factory()->create(['codigo' => 'free'])` a
+            // secas (asumiendo que no hay ninguno) chocaba con un 23505.
+            // Encontrado probando el flujo completo en vivo, 2026-09-30.
+            if (! $planFreeYaExistia) {
+                Plan::where('codigo', 'free')->delete();
+            }
+
             $catalogo->delete();
             $categoria->delete();
             $rubro->delete();

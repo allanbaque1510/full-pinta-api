@@ -24,6 +24,15 @@ final readonly class LiquidacionService
         return $local->liquidaciones()->orderByDesc('periodo_desde')->get();
     }
 
+    /** Sus propias comisiones (§3.2), en cualquier local donde trabaje. */
+    public function listarPorProfesional(Profesional $profesional): Collection
+    {
+        return $profesional->liquidaciones()
+            ->with('local.negocio.plan')
+            ->orderByDesc('periodo_desde')
+            ->get();
+    }
+
     /**
      * Genera o regenera el borrador de un periodo. Se puede llamar tantas
      * veces como haga falta mientras siga en `borrador` — cada corrida
@@ -95,6 +104,17 @@ final readonly class LiquidacionService
      */
     private function sumarPeriodo(Local $local, Profesional $profesional, CarbonImmutable $desde, CarbonImmutable $hasta): array
     {
+        // Normalizado ACÁ, no en cada llamador: `periodo_desde`/`periodo_hasta`
+        // se leen de `Liquidacion` con cast `date` (medianoche, sin hora) —
+        // sin expandir a los límites reales del día, `cerrar()` (que relee
+        // esas columnas ya persistidas, a diferencia de `generarBorrador()`,
+        // que recibe las fechas crudas del request) excluía en silencio
+        // cualquier cita completada después de medianoche del último día del
+        // periodo, dejando la liquidación cerrada con totales en cero. Bug
+        // real encontrado probando el flujo completo en vivo, 2026-09-30.
+        $desde = $desde->startOfDay();
+        $hasta = $hasta->endOfDay();
+
         // Lock del periodo (§5.3): bloquea estas citas mientras se suma, para
         // que un `CitaService::agregarProducto()` concurrente (que hace
         // `UPDATE` sobre la misma fila `cita`) espere a que esta transacción
