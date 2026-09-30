@@ -51,6 +51,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('consentimientos', [ConsentimientoController::class, 'store']);
 
     Route::delete('cuenta', [CuentaController::class, 'eliminar']);
+    Route::patch('cuenta/perfil', [CuentaController::class, 'actualizarPerfil']);
     Route::put('cuenta/contrasena', [ContrasenaController::class, 'cambiar']);
     Route::post('cuenta/email/solicitar-verificacion', [CuentaController::class, 'solicitarVerificacionEmail']);
     Route::post('cuenta/email/verificar', [CuentaController::class, 'confirmarVerificacionEmail']);

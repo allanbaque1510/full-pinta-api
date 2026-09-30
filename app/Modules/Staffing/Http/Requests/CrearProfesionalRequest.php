@@ -25,6 +25,10 @@ class CrearProfesionalRequest extends FormRequest
             'modalidad' => ['required', 'in:empleado,renta_silla,invitado'],
             'comision_pct' => ['required', 'numeric', 'between:0,100'],
             'desde' => ['sometimes', 'date'],
+
+            // Opcional: si ya tiene cuenta, vincula de una vez (§4.6) — resuelve
+            // por teléfono de una cuenta YA registrada, sin invitación por link.
+            'telefono' => ['sometimes', 'nullable', 'string', 'regex:/^09\d{8}$/'],
         ];
     }
 }

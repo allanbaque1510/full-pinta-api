@@ -25,6 +25,15 @@ class LiquidacionController extends Controller
         });
     }
 
+    public function indexProfesional(Profesional $profesional, LiquidacionService $liquidaciones): JsonResponse
+    {
+        return $this->ejecutar(function () use ($profesional, $liquidaciones) {
+            $this->authorize('verPropias', [Liquidacion::class, $profesional]);
+
+            return LiquidacionResource::collection($liquidaciones->listarPorProfesional($profesional));
+        });
+    }
+
     public function store(CrearLiquidacionRequest $request, Local $local, LiquidacionService $liquidaciones): JsonResponse
     {
         return $this->ejecutar(function () use ($request, $local, $liquidaciones) {
@@ -33,8 +42,8 @@ class LiquidacionController extends Controller
             $liquidacion = $liquidaciones->generarBorrador(
                 $local,
                 $profesional,
-                CarbonImmutable::parse($request->validated('periodo_desde'))->startOfDay(),
-                CarbonImmutable::parse($request->validated('periodo_hasta'))->endOfDay(),
+                CarbonImmutable::parse($request->validated('periodo_desde')),
+                CarbonImmutable::parse($request->validated('periodo_hasta')),
             );
 
             return LiquidacionResource::make($liquidacion->load('local.negocio.plan'));

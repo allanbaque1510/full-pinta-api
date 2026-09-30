@@ -5,6 +5,7 @@ namespace App\Modules\Directory\Application;
 use App\Models\Favorito;
 use App\Models\Local;
 use App\Models\Negocio;
+use App\Models\Profesional;
 use App\Models\Usuario;
 use App\Modules\Directory\Http\Resources\LocalPublicoResource;
 use Illuminate\Database\Eloquent\Collection;
@@ -72,23 +73,61 @@ final readonly class LocalService
         $perfil = Cache::remember(
             $this->clavePerfilPublico($local->id),
             self::TTL_CACHE_PERFIL_SEGUNDOS,
-            fn () => json_decode(json_encode(LocalPublicoResource::make($local->load([
-                'negocio',
-                'servicios' => fn ($q) => $q->where('activo', true),
-                'servicios.catalogoServicio',
-                'productos' => fn ($q) => $q->where('activo', true),
-                'productos.foto',
-                'amenidades',
-                'imagenes.tipo',
-                'horarios',
-                'resenas' => fn ($q) => $q->publicadas(),
-            ]))), true),
+            function () use ($local) {
+                $array = json_decode(json_encode(LocalPublicoResource::make($local->load([
+                    'negocio',
+                    'servicios' => fn ($q) => $q->where('activo', true),
+                    'servicios.catalogoServicio',
+                    'productos' => fn ($q) => $q->where('activo', true),
+                    'productos.foto',
+                    'amenidades',
+                    'imagenes.tipo',
+                    'horarios',
+                    'resenas' => fn ($q) => $q->publicadas(),
+                ]))), true);
+
+                $array['profesionales'] = $this->rosterProfesionalesPublico($local);
+
+                return $array;
+            },
         );
 
         $perfil['es_favorito'] = $usuario !== null
             && Favorito::where('usuario_id', $usuario->id)->where('local_id', $local->id)->exists();
 
         return $perfil;
+    }
+
+    /**
+     * Roster público del local (§4.6, §16.1 — "público y buscable",
+     * confirmado 2026-09-30): quién atiende acá, para que el cliente elija
+     * viendo caras, no solo precios. Liviano a propósito — nombre/foto/
+     * promedio, no el portafolio completo (eso es `GET
+     * /profesionales/{profesional}/perfil-publico`). Solo perfiles públicos
+     * y con asignación vigente; consultado directo contra los modelos
+     * compartidos, no contra `ProfesionalService` (Staffing) — mismo
+     * criterio que `BusquedaLocalService`, que hace lo mismo con `Catalog`.
+     *
+     * @return list<array{id: string, nombre: string, alias: ?string, foto_url: ?string, resenas_promedio: float}>
+     */
+    private function rosterProfesionalesPublico(Local $local): array
+    {
+        return Profesional::query()
+            ->with('fotoPerfil')
+            ->withAvg(['resenas' => fn ($q) => $q->publicadas()], 'puntaje_profesional')
+            ->where('perfil_publico', true)
+            ->whereHas('asignaciones', fn ($q) => $q->where('local_id', $local->id)->vigente())
+            ->orderBy('nombre')
+            ->get()
+            ->map(fn (Profesional $p) => [
+                'id' => $p->id,
+                'nombre' => $p->nombre,
+                'alias' => $p->alias,
+                'foto_url' => $p->fotoPerfil?->url,
+                'resenas_promedio' => round((float) ($p->resenas_avg_puntaje_profesional ?? 0), 1),
+            ])
+            ->values()
+            ->all();
     }
 
     /**

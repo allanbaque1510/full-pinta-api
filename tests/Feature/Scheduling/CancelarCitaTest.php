@@ -59,6 +59,33 @@ class CancelarCitaTest extends TestCase
         $this->assertDatabaseHas('cita_bitacora', ['cita_id' => $cita->id, 'estado_nuevo' => 'cancelada_cliente']);
     }
 
+    /**
+     * Regresión (encontrado probando el flujo completo en vivo, 2026-09-30):
+     * nada crea `cliente_perfil` al registrar un usuario — a propósito, no
+     * todo usuario llega a agendar. Antes del fix, `ClientePerfil::where(...)
+     * ->increment(...)` actualizaba 0 filas en silencio contra un cliente
+     * real (sin fila pre-creada): la métrica nunca se movía fuera de los
+     * tests (que sí la pre-creaban).
+     */
+    public function test_cancelacion_tardia_funciona_aunque_el_cliente_nunca_tuvo_fila_en_cliente_perfil(): void
+    {
+        $cliente = Usuario::factory()->create();
+        $local = Local::factory()->create(['politica_cancelacion_horas' => 2]);
+        $cita = Cita::factory()->create([
+            'cliente_id' => $cliente->id, 'local_id' => $local->id,
+            'inicio' => now()->addHour(), 'fin' => now()->addHours(2),
+        ]);
+
+        $this->assertDatabaseCount('cliente_perfil', 0);
+
+        $this->withHeaders($this->headers($cliente->createToken('t')->plainTextToken))
+            ->postJson("/api/v1/citas/{$cita->id}/cancelar")
+            ->assertOk()
+            ->assertJsonPath('estado', 'cancelada_cliente');
+
+        $this->assertDatabaseHas('cliente_perfil', ['usuario_id' => $cliente->id, 'cancelaciones_tardias' => 1]);
+    }
+
     public function test_el_staff_cancela_como_cancelada_local(): void
     {
         [, $token, , $local] = $this->propietarioConLocal();

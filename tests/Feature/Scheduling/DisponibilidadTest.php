@@ -75,6 +75,24 @@ class DisponibilidadTest extends TestCase
         $this->assertTrue($slots->contains(fn ($s) => $s->inicio->equalTo($fecha->setTime(11, 0))));
     }
 
+    /** §16.1 "público y buscable" (confirmado 2026-09-30): el cliente elige viendo cara, no un UUID pelado. */
+    public function test_el_slot_trae_nombre_alias_y_foto_del_profesional(): void
+    {
+        $fecha = CarbonImmutable::now()->next(2); // martes futuro
+        $local = Local::factory()->sinLeadTime()->create();
+        HorarioLocal::factory()->create(['local_id' => $local->id, 'dia_semana' => 2, 'abre' => '09:00', 'cierra' => '19:00']);
+        $profesional = Profesional::factory()->create(['nombre' => 'Kevin Ruiz', 'alias' => 'Kevin']);
+        $asignacion = Asignacion::factory()->create(['local_id' => $local->id, 'profesional_id' => $profesional->id]);
+        Turno::factory()->para($asignacion)->horario('09:00', '19:00', 2)->create();
+        $servicioLocal = $this->servicioSinRecurso($local, 60);
+        Habilidad::factory()->create(['profesional_id' => $profesional->id, 'servicio_local_id' => $servicioLocal->id]);
+
+        $slots = $this->servicio()->slots($local, $fecha->startOfDay(), [$servicioLocal->id]);
+
+        $this->assertSame('Kevin Ruiz', $slots->first()->profesionalNombre);
+        $this->assertSame('Kevin', $slots->first()->profesionalAlias);
+    }
+
     /** Kevin trabaja en dos locales (§4.6): cada uno solo lo ofrece en su propio horario. */
     public function test_un_profesional_multi_local_solo_aparece_en_el_horario_de_cada_local(): void
     {

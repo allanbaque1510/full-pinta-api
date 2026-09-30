@@ -5,6 +5,7 @@ namespace Tests\Feature\Scheduling;
 use App\Models\Asignacion;
 use App\Models\Cita;
 use App\Models\ClienteLocal;
+use App\Models\ClientePerfil;
 use App\Models\Profesional;
 use App\Models\Usuario;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -42,6 +43,36 @@ class ClienteLocalTest extends TestCase
             ->assertOk()
             ->assertJsonPath('total_citas', 2)
             ->assertJsonPath('nota', null);
+    }
+
+    public function test_la_ficha_muestra_la_confiabilidad_de_toda_la_plataforma(): void
+    {
+        [, $token, , $local] = $this->propietarioConLocal();
+        $cliente = Usuario::factory()->create();
+        ClientePerfil::factory()->create([
+            'usuario_id' => $cliente->id, 'no_shows' => 3,
+            'cancelaciones_tardias' => 1, 'requiere_confirmacion' => true,
+        ]);
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/locales/{$local->id}/clientes/{$cliente->id}")
+            ->assertOk()
+            ->assertJsonPath('no_shows', 3)
+            ->assertJsonPath('cancelaciones_tardias', 1)
+            ->assertJsonPath('requiere_confirmacion', true);
+    }
+
+    public function test_la_ficha_no_falla_si_el_cliente_nunca_tuvo_fila_en_cliente_perfil(): void
+    {
+        [, $token, , $local] = $this->propietarioConLocal();
+        $cliente = Usuario::factory()->create();
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/locales/{$local->id}/clientes/{$cliente->id}")
+            ->assertOk()
+            ->assertJsonPath('no_shows', 0)
+            ->assertJsonPath('cancelaciones_tardias', 0)
+            ->assertJsonPath('requiere_confirmacion', false);
     }
 
     public function test_actualizar_crea_la_fila_si_no_existe(): void

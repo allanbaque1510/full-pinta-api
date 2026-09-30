@@ -21,6 +21,8 @@ class UsuarioResource extends JsonResource
             'email' => $this->email,
             'email_verificado' => $this->email_verificado,
             'foto_url' => $this->fotoPerfil?->url,
+            'genero' => $this->genero,
+            'fecha_nacimiento' => $this->fecha_nacimiento?->toDateString(),
         ];
     }
 }

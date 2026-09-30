@@ -12,6 +12,9 @@ final readonly class Slot
 {
     public function __construct(
         public string $profesionalId,
+        public string $profesionalNombre,
+        public ?string $profesionalAlias,
+        public ?string $profesionalFotoUrl,
         public ?string $recursoId,
         public CarbonImmutable $inicio,
         public CarbonImmutable $fin,

@@ -15,7 +15,7 @@ class CitaPolicy
 {
     public function ver(Usuario $usuario, Cita $cita): bool
     {
-        return $this->esElCliente($usuario, $cita) || $this->esStaffDelLocal($usuario, $cita);
+        return $this->esElCliente($usuario, $cita) || $this->esStaffDelLocal($usuario, $cita) || $this->esElProfesionalAsignado($usuario, $cita);
     }
 
     /** Confirmar su propio hold, o el staff confirmándolo por él (walk-in tardío, por ejemplo). */
@@ -35,10 +35,14 @@ class CitaPolicy
         return $this->esElCliente($usuario, $cita) || $this->esStaffDelLocal($usuario, $cita);
     }
 
-    /** Marcar que llegó, completar, no-show, agregar producto, dar de alta un walk-in: solo quien opera la agenda. */
+    /**
+     * Marcar que llegó, completar, no-show, agregar producto, dar de alta un
+     * walk-in: quien opera la agenda del local, **o** el propio profesional
+     * asignado sobre su propia cita (§3.2) — nunca sobre la de un colega.
+     */
     public function gestionar(Usuario $usuario, Cita $cita): bool
     {
-        return $this->esStaffDelLocal($usuario, $cita);
+        return $this->esStaffDelLocal($usuario, $cita) || $this->esElProfesionalAsignado($usuario, $cita);
     }
 
     private function esElCliente(Usuario $usuario, Cita $cita): bool
@@ -51,5 +55,10 @@ class CitaPolicy
         $cita->loadMissing('local');
 
         return (new ContextoAcceso($usuario))->puedeVerAgendaCompleta($cita->local);
+    }
+
+    private function esElProfesionalAsignado(Usuario $usuario, Cita $cita): bool
+    {
+        return $usuario->profesional?->id === $cita->profesional_id;
     }
 }

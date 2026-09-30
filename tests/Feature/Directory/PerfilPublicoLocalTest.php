@@ -3,11 +3,13 @@
 namespace Tests\Feature\Directory;
 
 use App\Models\Amenidad;
+use App\Models\Asignacion;
 use App\Models\CatalogoServicio;
 use App\Models\Cita;
 use App\Models\Favorito;
 use App\Models\Local;
 use App\Models\Profesional;
+use App\Models\Resena;
 use App\Models\ServicioLocal;
 use App\Models\Usuario;
 use App\Modules\Catalog\Application\ProductoService;
@@ -39,6 +41,27 @@ class PerfilPublicoLocalTest extends TestCase
             ->assertJsonPath('nombre', 'Barbería Central')
             ->assertJsonCount(1, 'amenidades')
             ->assertJsonCount(1, 'servicios');
+    }
+
+    /** §16.1 "público y buscable" (confirmado 2026-09-30): el roster de quién atiende. */
+    public function test_el_perfil_publico_incluye_el_roster_de_profesionales(): void
+    {
+        $local = Local::factory()->create();
+        $publico = Profesional::factory()->create(['nombre' => 'Kevin', 'perfil_publico' => true]);
+        Asignacion::factory()->create(['local_id' => $local->id, 'profesional_id' => $publico->id]);
+        $oculto = Profesional::factory()->create(['nombre' => 'Oculto', 'perfil_publico' => false]);
+        Asignacion::factory()->create(['local_id' => $local->id, 'profesional_id' => $oculto->id]);
+
+        $cita = Cita::factory()->completada()->create(['local_id' => $local->id, 'profesional_id' => $publico->id]);
+        Resena::factory()->create(['cita_id' => $cita->id, 'puntaje_profesional' => 4]);
+
+        $respuesta = $this->getJson("/api/v1/locales/{$local->id}/perfil-publico")
+            ->assertOk()
+            ->assertJsonCount(1, 'profesionales')
+            ->assertJsonPath('profesionales.0.nombre', 'Kevin')
+            ->assertJsonPath('profesionales.0.resenas_promedio', 4);
+
+        $this->assertNotContains('Oculto', array_column($respuesta->json('profesionales'), 'nombre'));
     }
 
     public function test_un_local_no_activo_devuelve_404(): void

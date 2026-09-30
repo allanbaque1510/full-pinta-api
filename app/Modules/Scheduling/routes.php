@@ -19,6 +19,10 @@ Route::middleware('auth:sanctum')->group(function () {
     // scoping a uno.
     Route::get('mis-citas', [CitaController::class, 'misCitas']);
 
+    // Agenda propia del profesional (§3.2) — igual que arriba, sin scoping a
+    // un solo local: puede trabajar en varios a la vez (§4.6).
+    Route::get('mis-citas-profesional', [CitaController::class, 'misCitasProfesional']);
+
     Route::get('locales/{local}/citas', [CitaController::class, 'index']);
     Route::get('citas/{cita}', [CitaController::class, 'show']);
 

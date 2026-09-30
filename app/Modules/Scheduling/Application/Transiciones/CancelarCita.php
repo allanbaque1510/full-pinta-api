@@ -48,7 +48,13 @@ final readonly class CancelarCita
             $cita->update(['estado' => $estadoNuevo, 'cancelada_at' => now()]);
 
             if ($esCliente && $tardia) {
-                ClientePerfil::where('usuario_id', $cita->cliente_id)->increment('cancelaciones_tardias');
+                // `firstOrCreate`, no `where(...)->increment(...)`: nada crea
+                // `cliente_perfil` al registrar un usuario (a propósito — no
+                // todo usuario llega a agendar), así que un `increment` sobre
+                // una fila inexistente actualizaba 0 filas en silencio, sin
+                // error, y esta métrica nunca se movía. Bug real encontrado
+                // probando el flujo completo en vivo, 2026-09-30.
+                ClientePerfil::firstOrCreate(['usuario_id' => $cita->cliente_id])->increment('cancelaciones_tardias');
             }
         });
 

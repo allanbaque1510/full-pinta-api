@@ -2,9 +2,11 @@
 
 namespace Tests\Feature\Billing;
 
+use App\Models\Asignacion;
 use App\Models\Cita;
 use App\Models\CitaItem;
 use App\Models\CitaProducto;
+use App\Models\Liquidacion;
 use App\Models\Local;
 use App\Models\Negocio;
 use App\Models\NegocioMiembro;
@@ -125,6 +127,43 @@ class LiquidacionTest extends TestCase
             ->assertUnprocessable();
     }
 
+    /**
+     * Regresión (encontrado probando el flujo completo en vivo, 2026-09-30):
+     * `periodo_hasta` llega desde `Liquidacion` con cast `date` (medianoche,
+     * sin hora) — `cerrar()` recalcula releyendo esas columnas ya persistidas,
+     * a diferencia de `generarBorrador()`, que recibe las fechas crudas del
+     * request. Sin expandir `periodo_hasta` al final del día en el mismo
+     * lugar para ambos casos, `cerrar()` excluía en silencio cualquier cita
+     * completada después de medianoche del último día del periodo, dejando
+     * la liquidación cerrada con los totales en cero.
+     */
+    public function test_cerrar_conserva_los_montos_de_una_cita_completada_tarde_el_ultimo_dia_del_periodo(): void
+    {
+        [, $token, , $local] = $this->propietarioConLocal();
+        $profesional = Profesional::factory()->create();
+        $desde = now()->startOfMonth()->toDateString();
+        $hasta = now()->endOfMonth()->toDateString();
+
+        $cita = Cita::factory()->completada()->create([
+            'local_id' => $local->id, 'profesional_id' => $profesional->id,
+            // El último día del periodo, bien entrada la noche — el caso que
+            // rompía `cerrar()`.
+            'completada_at' => now()->endOfMonth()->setTime(23, 30), 'propina' => 15,
+        ]);
+        CitaItem::factory()->create(['cita_id' => $cita->id, 'precio' => 100, 'comisionable' => true, 'comision_pct' => 50]);
+
+        $liquidacionId = $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson("/api/v1/locales/{$local->id}/liquidaciones", ['profesional_id' => $profesional->id, 'periodo_desde' => $desde, 'periodo_hasta' => $hasta])
+            ->assertJsonPath('total_a_pagar', '65.00') // 15 propina + 50 comision
+            ->json('id');
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson("/api/v1/liquidaciones/{$liquidacionId}/cerrar")
+            ->assertOk()
+            ->assertJsonPath('estado', 'cerrada')
+            ->assertJsonPath('total_a_pagar', '65.00');
+    }
+
     public function test_marcar_pagada_solo_desde_cerrada(): void
     {
         [, $token, , $local] = $this->propietarioConLocal();
@@ -176,5 +215,56 @@ class LiquidacionTest extends TestCase
         );
 
         $this->assertNotEmpty($capturadas, 'Se esperaba un SELECT ... FOR UPDATE (§5.3, "aquí sí es plata").');
+    }
+
+    /**
+     * Ver sus propias comisiones (§3.2) — antes no existía ningún endpoint
+     * para esto. Ambas liquidaciones se arman por factory, no por HTTP como
+     * el propietario: dos `Authorization: Bearer` distintos en el mismo
+     * método revientan por el guard de Sanctum cacheando el primer usuario
+     * (trampa documentada en `CLAUDE.md`).
+     */
+    public function test_el_profesional_ve_sus_propias_liquidaciones_en_cualquier_local(): void
+    {
+        $localA = Local::factory()->create();
+        $localB = Local::factory()->create();
+        $cuenta = Usuario::factory()->create();
+        $profesional = Profesional::factory()->conCuenta()->create(['usuario_id' => $cuenta->id]);
+
+        Liquidacion::factory()->create(['local_id' => $localA->id, 'profesional_id' => $profesional->id]);
+        Liquidacion::factory()->create(['local_id' => $localB->id, 'profesional_id' => $profesional->id]);
+
+        $this->withHeader('Authorization', "Bearer {$cuenta->createToken('t')->plainTextToken}")
+            ->getJson("/api/v1/profesionales/{$profesional->id}/liquidaciones")
+            ->assertOk()
+            ->assertJsonCount(2);
+    }
+
+    public function test_un_profesional_no_puede_ver_las_liquidaciones_de_un_colega(): void
+    {
+        $cuenta = Usuario::factory()->create();
+        Profesional::factory()->conCuenta()->create(['usuario_id' => $cuenta->id]);
+        $colega = Profesional::factory()->create();
+
+        $this->withHeader('Authorization', "Bearer {$cuenta->createToken('t')->plainTextToken}")
+            ->getJson("/api/v1/profesionales/{$colega->id}/liquidaciones")
+            ->assertForbidden();
+    }
+
+    /**
+     * Deliberado (ver docblock de `LiquidacionPolicy::verPropias`): el
+     * propietario/admin ya tiene `GET /locales/{local}/liquidaciones` para
+     * esto, scopeado a su local — abrir también este endpoint cruzaría datos
+     * de otro negocio si el profesional trabaja en varios locales.
+     */
+    public function test_el_propietario_no_puede_usar_este_endpoint_ni_para_su_propio_local(): void
+    {
+        [, $token, , $local] = $this->propietarioConLocal();
+        $profesional = Profesional::factory()->create();
+        Asignacion::factory()->create(['local_id' => $local->id, 'profesional_id' => $profesional->id]);
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/profesionales/{$profesional->id}/liquidaciones")
+            ->assertForbidden();
     }
 }
