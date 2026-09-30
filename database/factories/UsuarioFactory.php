@@ -21,6 +21,7 @@ class UsuarioFactory extends Factory
             'telefono' => '09'.fake()->unique()->numerify('########'),
             'telefono_verificado' => true,
             'email' => fake()->unique()->safeEmail(),
+            'email_verificado' => false,
             'nombre' => fake()->name(),
             'genero' => fake()->randomElement(['m', 'f', 'otro', 'no_decir']),
             'fecha_nacimiento' => fake()->dateTimeBetween('-60 years', '-18 years'),
