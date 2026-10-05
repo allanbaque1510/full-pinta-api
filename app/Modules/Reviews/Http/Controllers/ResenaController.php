@@ -21,11 +21,7 @@ class ResenaController extends Controller
 
     public function index(Local $local, ResenaService $resenas): JsonResponse
     {
-        return $this->ejecutar(function () use ($local, $resenas) {
-            $this->authorize('ver', $local);
-
-            return ResenaResource::collection($resenas->listarPorLocal($local));
-        });
+        return $this->ejecutar(fn () => ResenaResource::collection($resenas->listarPorLocal($local)));
     }
 
     public function responder(ResponderResenaRequest $request, Resena $resena, ResenaService $resenas): JsonResponse

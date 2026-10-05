@@ -2,18 +2,14 @@
 
 namespace App\Modules\Staffing\Http\Requests;
 
-use App\Models\ServicioLocal;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class CrearHabilidadRequest extends FormRequest
 {
-    public function authorize(): bool
-    {
-        $servicio = ServicioLocal::find($this->input('servicio_local_id'));
-
-        return $servicio !== null && $this->user()->can('gestionarCatalogo', $servicio->local);
-    }
+    // Autorización: el controller resuelve `servicio_local_id` → `local` y
+    // consulta `ContextoAcceso::tienePermiso()` — depende del body, no de
+    // un parámetro de ruta.
 
     public function rules(): array
     {

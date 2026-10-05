@@ -309,6 +309,21 @@ Se armó un negocio/local/profesional/servicio de punta a punta contra el servid
 
 ---
 
+## Rediseño de permisos: de Policies de Laravel a middleware propio + tabla (2026-10-05)
+
+A pedido del usuario: los permisos de rol (§3.2) dejan de estar escritos a mano en PHP (Policies de Laravel) y pasan a vivir en base de datos, para poder asignarlos/quitarlos sin desplegar código.
+
+- **Esquema nuevo**: `rol` (los 5 roles de la matriz: cliente, profesional, recepcion, propietario, admin), `permiso` (uno por cada ruta protegida por rol — 80 filas, el código es literalmente el `name()` de su ruta) y `rol_permiso` (la matriz). Migraciones `crear_tabla_permisos` y `renombrar_rol_a_rol_personal` (esta última desambigua: `negocio_miembro.rol`/`asignacion.rol` pasan a `rol_personal` para no competir de nombre con la tabla `rol` — el contrato HTTP sigue exponiendo el campo como `rol`, la traducción pasa por el Service/Resource).
+- **`ContextoAcceso`** (`app/Support/Auth`) resuelve el rol de acceso completo (membresía en `negocio_miembro`, o profesional por asignación vigente en ESE local, o cliente por default) y expone `tienePermiso()`/`tienePermisoEnNegocio()`/`tienePermisoSobreProfesional()` contra `rol_permiso`.
+- **Sin Policies ni Gates de Laravel** — las 7 que existían (`LocalPolicy`, `NegocioPolicy`, `ProfesionalPolicy`, `CitaPolicy`, `LiquidacionPolicy`, `ResenaPolicy`, `DeviceTokenPolicy`) se borraron. En su lugar:
+  - Un middleware propio, `permiso` (`App\Http\Middleware\VerificarPermiso`), que lee `Route::currentRouteName()` como código de permiso y resuelve el `Local`/`Negocio`/`Profesional` contra el que preguntar mirando los parámetros de la propia ruta (siguiendo la relación `->local` para hijos como `{horario}`/`{servicio}`/`{turno}`/etc.). Cada `routes.php` queda en dos grupos: `['auth:sanctum', 'permiso']` para lo que depende de rol, `'auth:sanctum'` a secas para lo que depende de propiedad puntual.
+  - Lo que depende de propiedad puntual (es tu propia cita, eres tú mismo el profesional, eres el dueño legal de la suscripción) nunca pasa por `rol_permiso` — son `abort_unless(...)` directos en el controller o en el `FormRequest::authorize()`, comparando ids. Ahí donde se combina ("el cliente dueño, O el staff con permiso") se escribe como un `||`.
+  - Comando nuevo `php artisan permisos:sincronizar`: recorre las rutas con el middleware `permiso` y crea en el catálogo la fila que falte (`activo: false`, sin rol) — detectó en la práctica 9 inconsistencias reales entre el nombre de la ruta y el código sembrado a mano (`horarios.update` vs. el `locales.horarios.update` que se había escrito en el seeder), ya corregidas.
+- **Bug real encontrado durante la migración**: `abort_unless($cond, 403, $msg)` lanza `Symfony\...\HttpException`, no `AuthorizationException` — `EjecutaServicio::traducirError()` solo traducía la segunda, así que los nuevos checks devolvían `500` en vez de `403`. Corregido agregando el caso genérico `HttpException` al traductor.
+- **Pendiente, siguiente**: mantenedor (CRUD) de roles/permisos/usuarios para que un admin de **plataforma** (rol nuevo, separado de los `admin` por negocio — confirmado con el usuario: el admin de un negocio no debe poder tocar la matriz de permisos de toda la plataforma) edite `rol_permiso` sin tocar código.
+
+---
+
 ## Bloqueadores externos
 
 No dependen del código y conviene empezarlos ya:

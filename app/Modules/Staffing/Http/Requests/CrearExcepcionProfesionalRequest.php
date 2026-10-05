@@ -6,10 +6,7 @@ use Illuminate\Foundation\Http\FormRequest;
 
 class CrearExcepcionProfesionalRequest extends FormRequest
 {
-    public function authorize(): bool
-    {
-        return $this->user()->can('actualizar', $this->route('profesional'));
-    }
+    // Autorización: combinada en el controller (quien administra o el propio profesional).
 
     public function rules(): array
     {

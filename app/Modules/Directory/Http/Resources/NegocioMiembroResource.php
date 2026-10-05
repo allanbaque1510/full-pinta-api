@@ -18,7 +18,7 @@ class NegocioMiembroResource extends JsonResource
             'usuario_id' => $this->usuario_id,
             'usuario_nombre' => $this->usuario->nombre,
             'negocio_id' => $this->negocio_id,
-            'rol' => $this->rol,
+            'rol' => $this->rol_personal,
             'local_id' => $this->local_id,
             'local_nombre' => $this->local?->nombre,
             'desde' => $this->desde->toDateString(),

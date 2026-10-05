@@ -98,6 +98,8 @@ Son cuatro, no tres. **Recepción** es un rol aparte: en locales medianos hay al
 
 En la app: un solo proyecto Flutter con selector de contexto al entrar si el usuario tiene más de un rol. No dos apps.
 
+Esta matriz se implementa en base de datos, no hardcodeada en el código (`rol`/`permiso`/`rol_permiso`, revisión de base de datos, 2026-10-05, ver §4.3): activar/desactivar un permiso para un rol es un cambio de datos, no un despliegue. Lo que depende de propiedad puntual (es esta SU cita, es este profesional él mismo, es el dueño legal de la suscripción) no vive en esa tabla — se resuelve comparando directamente el registro contra el usuario, en cada endpoint.
+
 ### 3.3 Reglas de privacidad entre actores
 
 | Situación | Regla |
@@ -195,6 +197,31 @@ cliente_perfil
 Confiabilidad del cliente: se registra pero **no se muestra como puntaje público al cliente** — es hostil y lo espanta. Uso interno: al 3er no-show se activa `requiere_confirmacion`.
 
 `id` es uuid como toda tabla del esquema (regla del proyecto, sin excepción) aunque la relación con `usuario` sea 1:1 — `usuario_id` queda como columna UNIQUE normal en vez de ser la propia PK.
+
+```
+rol
+  id       uuid PK
+  codigo   varchar(20) UNIQUE   -- cliente, profesional, recepcion, propietario, admin
+  nombre   varchar
+  orden    smallint DEFAULT 0
+  activo   boolean DEFAULT true
+
+permiso
+  id            uuid PK
+  codigo        varchar(60) UNIQUE   -- uno por cada ruta protegida por rol; es el name() de esa ruta
+  nombre        varchar
+  descripcion   text NULL
+  activo        boolean DEFAULT true
+
+rol_permiso
+  rol_id      uuid FK -> rol
+  permiso_id  uuid FK -> permiso
+  PRIMARY KEY (rol_id, permiso_id)
+```
+
+Implementa la matriz del §3.2 (revisión de base de datos, 2026-10-05): `rol` son los cinco roles de la matriz; `permiso` es una fila por cada ruta de la API que depende de rol — nunca dos rutas comparten el mismo código, aunque hoy exijan el mismo rol, porque son reglas independientes que pueden divergir sin tocar código. `rol_permiso` es la matriz en sí. El código de cada `permiso` es, a propósito, el mismo `name()` de su ruta en Laravel — un middleware propio (`permiso`, no una Policy de Laravel) lee `Route::currentRouteName()` y pregunta directo contra esta tabla.
+
+Lo que esta tabla **no** cubre: las filas del §3.2 que dependen de propiedad puntual (agendar/ver/cancelar la propia cita, bloquear el propio horario, editar la propia ficha, la suscripción del dueño legal) — esas comparan el id del registro contra el usuario autenticado, directo en cada endpoint, nunca contra `rol_permiso`. Por la misma razón `rol` no tiene fila para `cliente`/`profesional` en todo lo que depende de propiedad: esos dos roles solo tienen entradas en `rol_permiso` para lo que de verdad es "cualquiera con este rol puede, sin importar de quién sea el registro" (ej. agendar para sí, crear un walk-in).
 
 ```
 tamano_mascota

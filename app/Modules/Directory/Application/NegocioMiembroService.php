@@ -38,7 +38,7 @@ final readonly class NegocioMiembroService
             'usuario_id' => $usuario->id,
             'negocio_id' => $negocio->id,
             'local_id' => $localId,
-            'rol' => $rol,
+            'rol_personal' => $rol,
             'desde' => now()->toDateString(),
         ])->load('usuario', 'local');
     }

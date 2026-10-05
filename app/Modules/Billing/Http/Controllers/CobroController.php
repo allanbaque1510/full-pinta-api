@@ -14,7 +14,7 @@ class CobroController extends Controller
     public function index(Negocio $negocio, CobroService $cobros): JsonResponse
     {
         return $this->ejecutar(function () use ($negocio, $cobros) {
-            $this->authorize('gestionarSuscripcion', $negocio);
+            abort_unless($negocio->propietario_id === request()->user()->id, 403, 'No tienes permiso para esto.');
 
             return CobroResource::collection($cobros->listarPorNegocio($negocio));
         });
@@ -24,7 +24,7 @@ class CobroController extends Controller
     {
         return $this->ejecutar(function () use ($cobro, $cobros) {
             $cobro->loadMissing('suscripcion.negocio');
-            $this->authorize('gestionarSuscripcion', $cobro->suscripcion->negocio);
+            abort_unless($cobro->suscripcion->negocio->propietario_id === request()->user()->id, 403, 'No tienes permiso para esto.');
 
             return CobroResource::make($cobros->marcarPagado($cobro));
         });
@@ -34,7 +34,7 @@ class CobroController extends Controller
     {
         return $this->ejecutar(function () use ($cobro, $cobros) {
             $cobro->loadMissing('suscripcion.negocio');
-            $this->authorize('gestionarSuscripcion', $cobro->suscripcion->negocio);
+            abort_unless($cobro->suscripcion->negocio->propietario_id === request()->user()->id, 403, 'No tienes permiso para esto.');
 
             return CobroResource::make($cobros->marcarReembolsado($cobro));
         });

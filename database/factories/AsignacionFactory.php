@@ -19,7 +19,7 @@ class AsignacionFactory extends Factory
         return [
             'local_id' => Local::factory(),
             'profesional_id' => Profesional::factory(),
-            'rol' => 'barbero',
+            'rol_personal' => 'barbero',
             'modalidad' => 'empleado',
             'comision_pct' => 50,
             'desde' => now()->subMonth()->toDateString(),

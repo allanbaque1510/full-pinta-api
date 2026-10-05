@@ -7,13 +7,8 @@ use Illuminate\Validation\Rule;
 
 class RegistrarWalkInRequest extends FormRequest
 {
-    public function authorize(): bool
-    {
-        // Registrar un walk-in es una acción de agenda, no de catálogo:
-        // recepción también puede (agenda y cobra, §3.2) — no solo
-        // propietario/admin.
-        return $this->user()->can('ver', $this->route('local'));
-    }
+    // Autorización: middleware `permiso` en routes.php — profesional,
+    // recepción, propietario y admin pueden (§3.2).
 
     public function rules(): array
     {

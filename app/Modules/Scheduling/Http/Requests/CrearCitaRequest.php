@@ -7,11 +7,8 @@ use Illuminate\Validation\Rule;
 
 class CrearCitaRequest extends FormRequest
 {
-    public function authorize(): bool
-    {
-        // Cualquier usuario autenticado puede reservar para sí mismo.
-        return true;
-    }
+    // Autorización: middleware `permiso` en routes.php — los cinco roles
+    // de la matriz (§3.2) tienen `locales.citas.store`.
 
     public function rules(): array
     {

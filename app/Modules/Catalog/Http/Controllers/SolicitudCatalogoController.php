@@ -13,11 +13,7 @@ class SolicitudCatalogoController extends Controller
 {
     public function index(Local $local, SolicitudCatalogoService $solicitudes): JsonResponse
     {
-        return $this->ejecutar(function () use ($local, $solicitudes) {
-            $this->authorize('ver', $local);
-
-            return SolicitudCatalogoResource::collection($solicitudes->listar($local));
-        });
+        return $this->ejecutar(fn () => SolicitudCatalogoResource::collection($solicitudes->listar($local)));
     }
 
     public function store(CrearSolicitudCatalogoRequest $request, Local $local, SolicitudCatalogoService $solicitudes): JsonResponse

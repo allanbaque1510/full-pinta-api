@@ -6,6 +6,7 @@ use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Throwable;
 
 /**
@@ -71,6 +72,17 @@ trait EjecutaServicio
 
         if ($e instanceof ModelNotFoundException) {
             return response_error(404, 'no_encontrado', 'El recurso no existe.');
+        }
+
+        // `abort()`/`abort_unless()` (los checks de propiedad puntual en los
+        // controllers, ver skill `endpoint`) lanzan esto, no
+        // `AuthorizationException` — sin este `if` caían al 500 genérico.
+        if ($e instanceof HttpException) {
+            return response_error(
+                $e->getStatusCode(),
+                $e->getStatusCode() === 403 ? 'no_autorizado' : 'error',
+                $e->getMessage() ?: 'Error.',
+            );
         }
 
         report($e);

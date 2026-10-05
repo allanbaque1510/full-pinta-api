@@ -17,11 +17,7 @@ class ServicioLocalController extends Controller
 {
     public function index(Local $local, ServicioLocalService $servicios): JsonResponse
     {
-        return $this->ejecutar(function () use ($local, $servicios) {
-            $this->authorize('ver', $local);
-
-            return ServicioLocalResource::collection($servicios->listar($local));
-        });
+        return $this->ejecutar(fn () => ServicioLocalResource::collection($servicios->listar($local)));
     }
 
     public function store(CrearServicioLocalRequest $request, Local $local, ServicioLocalService $servicios): JsonResponse
@@ -40,8 +36,6 @@ class ServicioLocalController extends Controller
     public function destroy(ServicioLocal $servicio, ServicioLocalService $servicios): JsonResponse
     {
         return $this->ejecutar(function () use ($servicio, $servicios) {
-            $this->authorize('gestionarCatalogo', $servicio->local);
-
             $servicios->desactivar($servicio);
 
             return response()->json(status: 204);

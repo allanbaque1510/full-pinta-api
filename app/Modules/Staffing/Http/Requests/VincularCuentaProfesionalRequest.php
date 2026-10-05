@@ -6,10 +6,7 @@ use Illuminate\Foundation\Http\FormRequest;
 
 class VincularCuentaProfesionalRequest extends FormRequest
 {
-    public function authorize(): bool
-    {
-        return $this->user()->can('vincularCuenta', $this->route('profesional'));
-    }
+    // Autorización: middleware `permiso` en routes.php.
 
     public function rules(): array
     {

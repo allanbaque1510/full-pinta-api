@@ -43,7 +43,7 @@ final readonly class NegocioService
                 'usuario_id' => $propietario->id,
                 'negocio_id' => $negocio->id,
                 'local_id' => null, // todos los locales del negocio
-                'rol' => 'propietario',
+                'rol_personal' => 'propietario',
                 'desde' => now()->toDateString(),
             ]);
 

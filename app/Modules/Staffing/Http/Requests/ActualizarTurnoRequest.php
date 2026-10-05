@@ -6,10 +6,7 @@ use Illuminate\Foundation\Http\FormRequest;
 
 class ActualizarTurnoRequest extends FormRequest
 {
-    public function authorize(): bool
-    {
-        return $this->user()->can('gestionarCatalogo', $this->route('turno')->local);
-    }
+    // Autorización: middleware `permiso` en routes.php.
 
     public function rules(): array
     {

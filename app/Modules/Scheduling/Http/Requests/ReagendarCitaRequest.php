@@ -2,6 +2,7 @@
 
 namespace App\Modules\Scheduling\Http\Requests;
 
+use App\Support\Auth\ContextoAcceso;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -9,7 +10,10 @@ class ReagendarCitaRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()->can('reagendar', $this->route('cita'));
+        $cita = $this->route('cita')->loadMissing('local');
+
+        return $cita->cliente_id === $this->user()->id
+            || (new ContextoAcceso($this->user()))->tienePermiso($cita->local, 'citas.reagendar');
     }
 
     public function rules(): array

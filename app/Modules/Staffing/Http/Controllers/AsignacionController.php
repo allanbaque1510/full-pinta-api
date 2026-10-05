@@ -17,11 +17,7 @@ class AsignacionController extends Controller
 {
     public function index(Local $local, AsignacionService $asignaciones): JsonResponse
     {
-        return $this->ejecutar(function () use ($local, $asignaciones) {
-            $this->authorize('ver', $local);
-
-            return AsignacionResource::collection($asignaciones->listarPorLocal($local));
-        });
+        return $this->ejecutar(fn () => AsignacionResource::collection($asignaciones->listarPorLocal($local)));
     }
 
     public function store(CrearAsignacionRequest $request, Local $local, AsignacionService $asignaciones): JsonResponse

@@ -308,7 +308,7 @@ class DemoDataSeeder extends Seeder
             'usuario_id' => $usuario->id,
             'negocio_id' => $negocio->id,
             'local_id' => $local->id,
-            'rol' => 'recepcion',
+            'rol_personal' => 'recepcion',
             'desde' => now()->toDateString(),
         ]);
 

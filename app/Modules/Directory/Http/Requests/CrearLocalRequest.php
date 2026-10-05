@@ -6,10 +6,7 @@ use Illuminate\Foundation\Http\FormRequest;
 
 class CrearLocalRequest extends FormRequest
 {
-    public function authorize(): bool
-    {
-        return $this->user()->can('crearLocal', $this->route('negocio'));
-    }
+    // Autorización: middleware `permiso` en routes.php.
 
     public function rules(): array
     {

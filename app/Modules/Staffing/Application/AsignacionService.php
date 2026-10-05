@@ -43,7 +43,7 @@ final readonly class AsignacionService
             return DB::transaction(fn () => Asignacion::create([
                 'local_id' => $local->id,
                 'profesional_id' => $profesional->id,
-                'rol' => $datos['rol'],
+                'rol_personal' => $datos['rol'],
                 'modalidad' => $datos['modalidad'],
                 'comision_pct' => $datos['comision_pct'],
                 'desde' => $datos['desde'] ?? now()->toDateString(),
@@ -62,6 +62,14 @@ final readonly class AsignacionService
 
     public function actualizar(Asignacion $asignacion, array $datos): Asignacion
     {
+        // El contrato HTTP sigue llamándolo `rol` (ver skill `endpoint`): la
+        // traducción al nombre real de la columna (`rol_personal`, desambiguado
+        // de `rol` del catálogo de permisos) pasa por acá, no por el cliente.
+        if (array_key_exists('rol', $datos)) {
+            $datos['rol_personal'] = $datos['rol'];
+            unset($datos['rol']);
+        }
+
         $asignacion->update($datos);
 
         return $asignacion;

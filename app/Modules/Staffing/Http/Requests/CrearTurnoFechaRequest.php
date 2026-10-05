@@ -2,18 +2,14 @@
 
 namespace App\Modules\Staffing\Http\Requests;
 
-use App\Models\Local;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class CrearTurnoFechaRequest extends FormRequest
 {
-    public function authorize(): bool
-    {
-        $local = Local::find($this->input('local_id'));
-
-        return $local !== null && $this->user()->can('gestionarCatalogo', $local);
-    }
+    // Autorización: el controller resuelve `local_id` del body y consulta
+    // `ContextoAcceso::tienePermiso()` — depende del body, no de un
+    // parámetro de ruta.
 
     public function rules(): array
     {

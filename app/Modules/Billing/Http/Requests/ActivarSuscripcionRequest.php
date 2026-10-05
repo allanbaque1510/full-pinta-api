@@ -7,9 +7,10 @@ use Illuminate\Validation\Rule;
 
 class ActivarSuscripcionRequest extends FormRequest
 {
+    /** Propiedad puntual: solo el dueño legal del negocio, ni siquiera `admin` (§3.2). */
     public function authorize(): bool
     {
-        return $this->user()->can('gestionarSuscripcion', $this->route('negocio'));
+        return $this->route('negocio')->propietario_id === $this->user()->id;
     }
 
     public function rules(): array

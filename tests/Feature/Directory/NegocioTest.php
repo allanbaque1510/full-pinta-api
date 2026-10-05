@@ -41,7 +41,7 @@ class NegocioTest extends TestCase
         $this->assertDatabaseHas('negocio_miembro', [
             'usuario_id' => $usuario->id,
             'negocio_id' => $respuesta->json('id'),
-            'rol' => 'propietario',
+            'rol_personal' => 'propietario',
             'local_id' => null,
         ]);
     }

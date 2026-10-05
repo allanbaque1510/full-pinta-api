@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\ForzarJson;
 use App\Http\Middleware\Idempotencia;
+use App\Http\Middleware\VerificarPermiso;
 use App\Modules\Billing\Jobs\ActualizarVigenciaSuscripciones;
 use App\Modules\Notifications\Jobs\EnviarNotificacionesProgramadas;
 use App\Modules\Notifications\Jobs\ProgramarRecordatoriosCitas;
@@ -60,6 +61,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'idempotente' => Idempotencia::class,
+            'permiso' => VerificarPermiso::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Support\Auth\ContextoAcceso;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
@@ -11,9 +12,14 @@ use Illuminate\Foundation\Http\FormRequest;
  */
 class CrearImagenProfesionalRequest extends FormRequest
 {
+    /** Quien administra alguno de sus locales, o el propio profesional. */
     public function authorize(): bool
     {
-        return $this->user()->can('actualizar', $this->route('profesional'));
+        $profesional = $this->route('profesional');
+        $contexto = new ContextoAcceso($this->user());
+
+        return $contexto->tienePermisoSobreProfesional($profesional, 'profesionales.imagenes.store')
+            || $this->user()->profesional?->id === $profesional->id;
     }
 
     public function rules(): array
