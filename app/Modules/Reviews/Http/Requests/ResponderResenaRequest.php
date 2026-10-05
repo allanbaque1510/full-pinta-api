@@ -6,10 +6,7 @@ use Illuminate\Foundation\Http\FormRequest;
 
 class ResponderResenaRequest extends FormRequest
 {
-    public function authorize(): bool
-    {
-        return $this->user()->can('responder', $this->route('resena'));
-    }
+    // Autorización: `can:responder,resena` en routes.php.
 
     public function rules(): array
     {

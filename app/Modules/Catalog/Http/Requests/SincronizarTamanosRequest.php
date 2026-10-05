@@ -7,10 +7,7 @@ use Illuminate\Validation\Rule;
 
 class SincronizarTamanosRequest extends FormRequest
 {
-    public function authorize(): bool
-    {
-        return $this->user()->can('gestionarCatalogo', $this->route('servicio')->local);
-    }
+    // Autorización: middleware `permiso` en routes.php.
 
     public function rules(): array
     {

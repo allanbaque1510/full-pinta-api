@@ -15,11 +15,7 @@ class HorarioLocalController extends Controller
 {
     public function index(Local $local, HorarioLocalService $horarios): JsonResponse
     {
-        return $this->ejecutar(function () use ($local, $horarios) {
-            $this->authorize('ver', $local);
-
-            return HorarioLocalResource::collection($horarios->listar($local));
-        });
+        return $this->ejecutar(fn () => HorarioLocalResource::collection($horarios->listar($local)));
     }
 
     public function store(CrearHorarioRequest $request, Local $local, HorarioLocalService $horarios): JsonResponse
@@ -38,8 +34,6 @@ class HorarioLocalController extends Controller
     public function destroy(HorarioLocal $horario, HorarioLocalService $horarios): JsonResponse
     {
         return $this->ejecutar(function () use ($horario, $horarios) {
-            $this->authorize('gestionarCatalogo', $horario->local);
-
             $horarios->eliminar($horario);
 
             return response()->json(status: 204);

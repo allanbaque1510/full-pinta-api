@@ -9,6 +9,7 @@ use App\Http\Resources\ImagenResource;
 use App\Models\Imagen;
 use App\Models\Local;
 use App\Models\Profesional;
+use App\Support\Auth\ContextoAcceso;
 use App\Support\ImagenService;
 use Illuminate\Http\JsonResponse;
 
@@ -26,11 +27,7 @@ class ImagenController extends Controller
 {
     public function indexLocal(Local $local, ImagenService $imagenes): JsonResponse
     {
-        return $this->ejecutar(function () use ($local, $imagenes) {
-            $this->authorize('ver', $local);
-
-            return ImagenResource::collection($imagenes->listar('local', $local->id));
-        });
+        return $this->ejecutar(fn () => ImagenResource::collection($imagenes->listar('local', $local->id)));
     }
 
     public function storeLocal(CrearImagenLocalRequest $request, Local $local, ImagenService $imagenes): JsonResponse
@@ -44,7 +41,11 @@ class ImagenController extends Controller
     public function indexProfesional(Profesional $profesional, ImagenService $imagenes): JsonResponse
     {
         return $this->ejecutar(function () use ($profesional, $imagenes) {
-            $this->authorize('ver', $profesional);
+            $contexto = new ContextoAcceso(request()->user());
+            $autorizado = $contexto->tienePermisoSobreProfesional($profesional, 'profesionales.imagenes.index')
+                || request()->user()->profesional?->id === $profesional->id;
+
+            abort_unless($autorizado, 403, 'No tienes permiso para esto.');
 
             return ImagenResource::collection($imagenes->listar('profesional', $profesional->id));
         });
@@ -70,7 +71,14 @@ class ImagenController extends Controller
     {
         return $this->ejecutar(function () use ($imagen, $imagenes) {
             $dueno = $imagen->objeto;
-            $this->authorize($dueno instanceof Local ? 'gestionarCatalogo' : 'actualizar', $dueno);
+            $contexto = new ContextoAcceso(request()->user());
+
+            $autorizado = $dueno instanceof Local
+                ? $contexto->tienePermiso($dueno, 'locales.imagenes.store')
+                : $contexto->tienePermisoSobreProfesional($dueno, 'profesionales.imagenes.store')
+                    || request()->user()->profesional?->id === $dueno->id;
+
+            abort_unless($autorizado, 403, 'No tienes permiso para esto.');
 
             $imagenes->eliminar($imagen);
 

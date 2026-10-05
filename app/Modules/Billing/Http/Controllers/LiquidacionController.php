@@ -17,8 +17,6 @@ class LiquidacionController extends Controller
     public function index(Local $local, LiquidacionService $liquidaciones): JsonResponse
     {
         return $this->ejecutar(function () use ($local, $liquidaciones) {
-            $this->authorize('gestionar', [Liquidacion::class, $local]);
-
             $lista = $liquidaciones->listarPorLocal($local)->load('local.negocio.plan');
 
             return LiquidacionResource::collection($lista);
@@ -28,7 +26,13 @@ class LiquidacionController extends Controller
     public function indexProfesional(Profesional $profesional, LiquidacionService $liquidaciones): JsonResponse
     {
         return $this->ejecutar(function () use ($profesional, $liquidaciones) {
-            $this->authorize('verPropias', [Liquidacion::class, $profesional]);
+            // Propiedad puntual (§3.2): solo el propio profesional, nunca
+            // propietario/admin de otro local que también lo emplee — ver
+            // docblock original de `LiquidacionPolicy::verPropias` (ya
+            // retirada): abrir esto a propietario/admin filtrando por
+            // profesional cruzaría locales de negocios distintos, la misma
+            // fuga de privacidad que el §3.3 prohíbe.
+            abort_unless(request()->user()->profesional?->id === $profesional->id, 403, 'No tienes permiso para esto.');
 
             return LiquidacionResource::collection($liquidaciones->listarPorProfesional($profesional));
         });
@@ -52,19 +56,11 @@ class LiquidacionController extends Controller
 
     public function cerrar(Liquidacion $liquidacion, LiquidacionService $liquidaciones): JsonResponse
     {
-        return $this->ejecutar(function () use ($liquidacion, $liquidaciones) {
-            $this->authorize('actualizar', $liquidacion);
-
-            return LiquidacionResource::make($liquidaciones->cerrar($liquidacion)->load('local.negocio.plan'));
-        });
+        return $this->ejecutar(fn () => LiquidacionResource::make($liquidaciones->cerrar($liquidacion)->load('local.negocio.plan')));
     }
 
     public function marcarPagada(Liquidacion $liquidacion, LiquidacionService $liquidaciones): JsonResponse
     {
-        return $this->ejecutar(function () use ($liquidacion, $liquidaciones) {
-            $this->authorize('actualizar', $liquidacion);
-
-            return LiquidacionResource::make($liquidaciones->marcarPagada($liquidacion)->load('local.negocio.plan'));
-        });
+        return $this->ejecutar(fn () => LiquidacionResource::make($liquidaciones->marcarPagada($liquidacion)->load('local.negocio.plan')));
     }
 }

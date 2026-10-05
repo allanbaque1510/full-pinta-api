@@ -38,7 +38,7 @@ class SuscripcionTest extends TestCase
         [, , $negocio] = $this->propietarioConNegocio();
 
         $admin = Usuario::factory()->create();
-        NegocioMiembro::factory()->create(['usuario_id' => $admin->id, 'negocio_id' => $negocio->id, 'local_id' => null, 'rol' => 'admin']);
+        NegocioMiembro::factory()->create(['usuario_id' => $admin->id, 'negocio_id' => $negocio->id, 'local_id' => null, 'rol_personal' => 'admin']);
 
         $this->withHeader('Authorization', "Bearer {$admin->createToken('t')->plainTextToken}")
             ->postJson("/api/v1/negocios/{$negocio->id}/suscripcion", [

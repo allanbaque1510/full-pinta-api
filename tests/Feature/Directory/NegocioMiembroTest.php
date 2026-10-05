@@ -33,7 +33,7 @@ class NegocioMiembroTest extends TestCase
             ->assertJsonPath('local_id', null);
 
         $this->assertDatabaseHas('negocio_miembro', [
-            'usuario_id' => $recepcionista->id, 'negocio_id' => $negocio->id, 'rol' => 'recepcion',
+            'usuario_id' => $recepcionista->id, 'negocio_id' => $negocio->id, 'rol_personal' => 'recepcion',
         ]);
     }
 
@@ -134,7 +134,7 @@ class NegocioMiembroTest extends TestCase
     public function test_no_se_puede_terminar_la_membresia_del_propietario_legal(): void
     {
         [, $token, $negocio] = $this->propietarioConNegocio();
-        $miembroPropietario = NegocioMiembro::where('negocio_id', $negocio->id)->where('rol', 'propietario')->firstOrFail();
+        $miembroPropietario = NegocioMiembro::where('negocio_id', $negocio->id)->where('rol_personal', 'propietario')->firstOrFail();
 
         $this->withHeader('Authorization', "Bearer {$token}")
             ->postJson("/api/v1/miembros/{$miembroPropietario->id}/terminar")

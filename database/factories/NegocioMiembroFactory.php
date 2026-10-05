@@ -20,18 +20,18 @@ class NegocioMiembroFactory extends Factory
             'usuario_id' => Usuario::factory(),
             'negocio_id' => Negocio::factory(),
             'local_id' => null,
-            'rol' => 'recepcion',
+            'rol_personal' => 'recepcion',
             'desde' => now()->subMonth()->toDateString(),
         ];
     }
 
     public function propietario(): static
     {
-        return $this->state(fn () => ['rol' => 'propietario']);
+        return $this->state(fn () => ['rol_personal' => 'propietario']);
     }
 
     public function recepcion(): static
     {
-        return $this->state(fn () => ['rol' => 'recepcion']);
+        return $this->state(fn () => ['rol_personal' => 'recepcion']);
     }
 }

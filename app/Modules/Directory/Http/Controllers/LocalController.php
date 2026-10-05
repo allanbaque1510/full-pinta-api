@@ -16,11 +16,7 @@ class LocalController extends Controller
 {
     public function index(Negocio $negocio, LocalService $locales): JsonResponse
     {
-        return $this->ejecutar(function () use ($negocio, $locales) {
-            $this->authorize('verLocales', $negocio);
-
-            return LocalResource::collection($locales->listarPorNegocio($negocio));
-        });
+        return $this->ejecutar(fn () => LocalResource::collection($locales->listarPorNegocio($negocio)));
     }
 
     public function store(CrearLocalRequest $request, Negocio $negocio, LocalService $locales): JsonResponse
@@ -30,11 +26,7 @@ class LocalController extends Controller
 
     public function show(Local $local): JsonResponse
     {
-        return $this->ejecutar(function () use ($local) {
-            $this->authorize('ver', $local);
-
-            return LocalResource::make($local->loadMissing('negocio'));
-        });
+        return $this->ejecutar(fn () => LocalResource::make($local->loadMissing('negocio')));
     }
 
     public function perfilPublico(Local $local, LocalService $locales, Request $request): JsonResponse
@@ -58,19 +50,11 @@ class LocalController extends Controller
 
     public function activar(Local $local, LocalService $locales): JsonResponse
     {
-        return $this->ejecutar(function () use ($local, $locales) {
-            $this->authorize('cambiarEstado', $local);
-
-            return LocalResource::make($locales->activar($local));
-        });
+        return $this->ejecutar(fn () => LocalResource::make($locales->activar($local)));
     }
 
     public function pausar(Local $local, LocalService $locales): JsonResponse
     {
-        return $this->ejecutar(function () use ($local, $locales) {
-            $this->authorize('cambiarEstado', $local);
-
-            return LocalResource::make($locales->pausar($local));
-        });
+        return $this->ejecutar(fn () => LocalResource::make($locales->pausar($local)));
     }
 }

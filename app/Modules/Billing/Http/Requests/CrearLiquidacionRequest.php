@@ -2,16 +2,12 @@
 
 namespace App\Modules\Billing\Http\Requests;
 
-use App\Models\Liquidacion;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class CrearLiquidacionRequest extends FormRequest
 {
-    public function authorize(): bool
-    {
-        return $this->user()->can('gestionar', [Liquidacion::class, $this->route('local')]);
-    }
+    // Autorización: middleware `permiso` en routes.php (locales.liquidaciones.store).
 
     public function rules(): array
     {

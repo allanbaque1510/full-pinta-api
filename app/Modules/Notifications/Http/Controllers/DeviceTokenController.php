@@ -22,7 +22,8 @@ class DeviceTokenController extends Controller
     public function destroy(DeviceToken $deviceToken, DeviceTokenService $tokens): JsonResponse
     {
         return $this->ejecutar(function () use ($deviceToken, $tokens) {
-            $this->authorize('eliminar', $deviceToken);
+            // Propiedad puntual: solo el dueño del dispositivo.
+            abort_unless($deviceToken->usuario_id === request()->user()->id, 403, 'No tienes permiso para esto.');
 
             $tokens->eliminar($deviceToken);
 

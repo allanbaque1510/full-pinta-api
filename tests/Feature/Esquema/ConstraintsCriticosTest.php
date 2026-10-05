@@ -275,7 +275,7 @@ class ConstraintsCriticosTest extends TestCase
                 'id' => $asignacionId,
                 'local_id' => $localId,
                 'profesional_id' => $this->profesional,
-                'rol' => 'barbero',
+                'rol_personal' => 'barbero',
                 'modalidad' => 'empleado',
                 'comision_pct' => 50,
                 'desde' => $vigenteDesde,

@@ -65,7 +65,7 @@ final readonly class ProfesionalService
             Asignacion::create([
                 'local_id' => $local->id,
                 'profesional_id' => $profesional->id,
-                'rol' => $datosAsignacion['rol'],
+                'rol_personal' => $datosAsignacion['rol'],
                 'modalidad' => $datosAsignacion['modalidad'],
                 'comision_pct' => $datosAsignacion['comision_pct'],
                 'desde' => $datosAsignacion['desde'] ?? now()->toDateString(),

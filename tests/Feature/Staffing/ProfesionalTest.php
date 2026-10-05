@@ -31,7 +31,7 @@ class ProfesionalTest extends TestCase
         $this->assertDatabaseHas('asignacion', [
             'local_id' => $local->id,
             'profesional_id' => $respuesta->json('id'),
-            'rol' => 'barbero',
+            'rol_personal' => 'barbero',
             'comision_pct' => 50,
         ]);
     }

@@ -21,11 +21,7 @@ class NegocioController extends Controller
 
     public function show(Negocio $negocio): JsonResponse
     {
-        return $this->ejecutar(function () use ($negocio) {
-            $this->authorize('ver', $negocio);
-
-            return NegocioResource::make($negocio->load('plan', 'fotoPerfil', 'portadaImagen'));
-        });
+        return $this->ejecutar(fn () => NegocioResource::make($negocio->load('plan', 'fotoPerfil', 'portadaImagen')));
     }
 
     public function update(ActualizarNegocioRequest $request, Negocio $negocio, NegocioService $negocios): JsonResponse

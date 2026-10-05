@@ -15,11 +15,7 @@ class TurnoController extends Controller
 {
     public function index(Asignacion $asignacion): JsonResponse
     {
-        return $this->ejecutar(function () use ($asignacion) {
-            $this->authorize('ver', $asignacion->local);
-
-            return TurnoResource::collection($asignacion->turnos);
-        });
+        return $this->ejecutar(fn () => TurnoResource::collection($asignacion->turnos));
     }
 
     public function store(CrearTurnoRequest $request, Asignacion $asignacion, TurnoService $turnos): JsonResponse
@@ -35,8 +31,6 @@ class TurnoController extends Controller
     public function destroy(Turno $turno, TurnoService $turnos): JsonResponse
     {
         return $this->ejecutar(function () use ($turno, $turnos) {
-            $this->authorize('gestionarCatalogo', $turno->local);
-
             $turnos->eliminar($turno);
 
             return response()->json(status: 204);

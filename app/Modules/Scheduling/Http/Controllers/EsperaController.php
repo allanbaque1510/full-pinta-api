@@ -13,11 +13,7 @@ class EsperaController extends Controller
 {
     public function index(Local $local, EsperaService $esperas): JsonResponse
     {
-        return $this->ejecutar(function () use ($local, $esperas) {
-            $this->authorize('ver', $local);
-
-            return EsperaResource::collection($esperas->listar($local));
-        });
+        return $this->ejecutar(fn () => EsperaResource::collection($esperas->listar($local)));
     }
 
     public function store(CrearEsperaRequest $request, Local $local, EsperaService $esperas): JsonResponse

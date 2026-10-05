@@ -4,6 +4,9 @@
 // Se montan bajo /api/v1 desde DirectoryServiceProvider.
 //
 // Ver `docs/api-referencia.md` para el contrato completo request/response.
+// Dos grupos: el primero exige el permiso de rol de su propia ruta (§3.2,
+// ver `App\Http\Middleware\VerificarPermiso`); el segundo no depende de rol
+// (crear el propio negocio, o el dueño que la ruta resuelve polimórficamente).
 
 use App\Http\Controllers\ImagenController;
 use App\Modules\Directory\Http\Controllers\AmenidadController;
@@ -17,62 +20,70 @@ use Illuminate\Support\Facades\Route;
 
 // Público: el catálogo de amenidades lo define la plataforma, no hace falta
 // estar autenticado para verlo (el front lo usa para armar pickers).
-Route::get('amenidades', [AmenidadController::class, 'index']);
+Route::get('amenidades', [AmenidadController::class, 'index'])->name('amenidades.index');
 
 // Públicas (§7): la búsqueda y el perfil del local son la puerta de entrada
 // del cliente, antes de tener cuenta.
-Route::get('buscar/locales', [BusquedaLocalController::class, 'index']);
-Route::get('locales/{local}/perfil-publico', [LocalController::class, 'perfilPublico']);
+Route::get('buscar/locales', [BusquedaLocalController::class, 'index'])->name('buscar.locales');
+Route::get('locales/{local}/perfil-publico', [LocalController::class, 'perfilPublico'])->name('locales.perfil-publico');
 
-Route::middleware('auth:sanctum')->group(function () {
-    // No hay `index` (listar TODOS los negocios sería un leak de datos de
-    // negocio) ni `destroy` (un negocio no se borra, ver §4.2).
-    Route::apiResource('negocios', NegocioController::class)->only(['store', 'show', 'update']);
+// --- Permiso por rol (§3.2) ------------------------------------------------
+Route::middleware(['auth:sanctum', 'permiso'])->group(function () {
+    Route::get('negocios/{negocio}', [NegocioController::class, 'show'])->name('negocios.show');
+    Route::patch('negocios/{negocio}', [NegocioController::class, 'update'])->name('negocios.update');
 
     // Acceso real a la app (admin/recepción), no la ficha de trabajo del
     // profesional — ver docblock de `NegocioMiembroController`. Resuelve por
     // `telefono` de una cuenta ya registrada, sin invitación por link en v1.
-    Route::get('negocios/{negocio}/miembros', [NegocioMiembroController::class, 'index']);
-    Route::post('negocios/{negocio}/miembros', [NegocioMiembroController::class, 'store']);
-    Route::post('miembros/{miembro}/terminar', [NegocioMiembroController::class, 'terminar']);
+    Route::get('negocios/{negocio}/miembros', [NegocioMiembroController::class, 'index'])
+        ->name('negocios.miembros.index');
+    Route::post('negocios/{negocio}/miembros', [NegocioMiembroController::class, 'store'])
+        ->name('negocios.miembros.store');
+    Route::post('miembros/{miembro}/terminar', [NegocioMiembroController::class, 'terminar'])
+        ->name('miembros.terminar');
 
-    // Nido "shallow": crear/listar locales cuelga del negocio
-    // (`negocios/{negocio}/locales`), pero ver/editar un local ya no necesita
-    // el negocio en la URL (`locales/{local}`) — es el mismo shape que ya
-    // tenían estas rutas escritas a mano. Sin `destroy`: un local no se
-    // borra, cambia de `estado` (§4.4), por eso `activar`/`pausar` van aparte.
-    //
-    // `parameters`: el singular en inglés de "locales" es "locale", no
-    // "local" — sin esto, Laravel genera `{locale}` en la URL y el binding
-    // implícito nunca coincide con el `Local $local` de los controladores.
-    Route::apiResource('negocios.locales', LocalController::class)
-        ->parameters(['locales' => 'local'])
-        ->shallow()
-        ->except(['destroy']);
-    Route::post('locales/{local}/activar', [LocalController::class, 'activar']);
-    Route::post('locales/{local}/pausar', [LocalController::class, 'pausar']);
+    Route::get('negocios/{negocio}/locales', [LocalController::class, 'index'])->name('negocios.locales.index');
+    Route::post('negocios/{negocio}/locales', [LocalController::class, 'store'])->name('negocios.locales.store');
+    // Sin `destroy`: un local no se borra, cambia de `estado` (§4.4), por eso
+    // `activar`/`pausar` van aparte.
+    Route::get('locales/{local}', [LocalController::class, 'show'])->name('locales.show');
+    Route::patch('locales/{local}', [LocalController::class, 'update'])->name('locales.update');
+    Route::post('locales/{local}/activar', [LocalController::class, 'activar'])->name('locales.activar');
+    Route::post('locales/{local}/pausar', [LocalController::class, 'pausar'])->name('locales.pausar');
 
-    // Mismo caso de `parameters`: sin esto el segmento padre de la URL sale
-    // como `{locale}` y no coincide con `Local $local` en el controlador.
-    // Sin `show`: no hace falta consultar un horario suelto por id, siempre
-    // se listan todos los del local.
-    Route::apiResource('locales.horarios', HorarioLocalController::class)
-        ->parameters(['locales' => 'local'])
-        ->shallow()
-        ->except(['show']);
+    // Horarios: `update`/`destroy` resuelven el local vía la relación
+    // `horario->local` (el middleware `permiso` la sigue solo).
+    Route::get('locales/{local}/horarios', [HorarioLocalController::class, 'index'])->name('locales.horarios.index');
+    Route::post('locales/{local}/horarios', [HorarioLocalController::class, 'store'])->name('locales.horarios.store');
+    Route::patch('horarios/{horario}', [HorarioLocalController::class, 'update'])->name('horarios.update');
+    Route::delete('horarios/{horario}', [HorarioLocalController::class, 'destroy'])->name('horarios.destroy');
 
     // Galería polimórfica compartida con Staffing (§4.4) — `ImagenController`
-    // no vive en ningún módulo, ninguno es dueño único de este dato. `update`/
-    // `destroy` (`imagenes/{imagen}`) se registran UNA sola vez aquí: si
-    // Staffing también las declarara, las dos generarían la misma URI y una
-    // pisaría a la otra en silencio.
-    Route::get('locales/{local}/imagenes', [ImagenController::class, 'indexLocal']);
-    Route::post('locales/{local}/imagenes', [ImagenController::class, 'storeLocal']);
-    Route::patch('imagenes/{imagen}', [ImagenController::class, 'update']);
-    Route::delete('imagenes/{imagen}', [ImagenController::class, 'destroy']);
+    // no vive en ningún módulo. `update`/`destroy` (planas, `imagenes/{imagen}`)
+    // van en el grupo sin permiso de rol: el dueño es polimórfico.
+    Route::get('locales/{local}/imagenes', [ImagenController::class, 'indexLocal'])->name('locales.imagenes.index');
+    Route::post('locales/{local}/imagenes', [ImagenController::class, 'storeLocal'])->name('locales.imagenes.store');
 
     // No es un CRUD de un solo recurso por id: PUT reemplaza el conjunto
     // completo de una vez (§4.4), así que no encaja en apiResource.
-    Route::get('locales/{local}/amenidades', [LocalAmenidadController::class, 'index']);
-    Route::put('locales/{local}/amenidades', [LocalAmenidadController::class, 'update']);
+    Route::get('locales/{local}/amenidades', [LocalAmenidadController::class, 'index'])
+        ->name('locales.amenidades.index');
+    Route::put('locales/{local}/amenidades', [LocalAmenidadController::class, 'update'])
+        ->name('locales.amenidades.update');
+});
+
+// --- Sin permiso de rol -----------------------------------------------------
+Route::middleware('auth:sanctum')->group(function () {
+    // No hay `index` (listar TODOS los negocios sería un leak de datos de
+    // negocio) ni `destroy` (un negocio no se borra, ver §4.2). Cualquier
+    // usuario autenticado puede crear su propio negocio.
+    Route::post('negocios', [NegocioController::class, 'store'])->name('negocios.store');
+
+    // `update`/`destroy` son planas (`imagenes/{imagen}`) y se registran UNA
+    // sola vez acá: si Staffing también las declarara, las dos generarían la
+    // misma URI y una pisaría a la otra en silencio. Su permiso depende del
+    // tipo de dueño (`local` o `profesional`), conocido solo en tiempo de
+    // ejecución — se autorizan dentro del controller.
+    Route::patch('imagenes/{imagen}', [ImagenController::class, 'update'])->name('imagenes.update');
+    Route::delete('imagenes/{imagen}', [ImagenController::class, 'destroy'])->name('imagenes.destroy');
 });

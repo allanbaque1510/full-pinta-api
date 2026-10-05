@@ -62,7 +62,7 @@ final readonly class ResolverContexto
             ->get()
             ->map(fn ($m) => [
                 'tipo' => 'negocio',
-                'rol' => $m->rol,
+                'rol' => $m->rol_personal,
                 'negocio_id' => $m->negocio_id,
                 'negocio_nombre' => $m->negocio->nombre_marca,
                 'local_id' => $m->local_id,
@@ -78,7 +78,7 @@ final readonly class ResolverContexto
                 ->get()
                 ->map(fn ($a) => [
                     'tipo' => 'profesional',
-                    'rol' => $a->rol,
+                    'rol' => $a->rol_personal,
                     'negocio_id' => null,
                     'negocio_nombre' => null,
                     'local_id' => $a->local_id,

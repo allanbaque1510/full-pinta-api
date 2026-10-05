@@ -18,7 +18,7 @@ class AsignacionResource extends JsonResource
             'local_id' => $this->local_id,
             'profesional_id' => $this->profesional_id,
             'profesional_nombre' => $this->whenLoaded('profesional', fn () => $this->profesional->nombre),
-            'rol' => $this->rol,
+            'rol' => $this->rol_personal,
             'modalidad' => $this->modalidad,
             'comision_pct' => $this->comision_pct,
             // `->toDateString()`, no el valor crudo: el cast `date` de

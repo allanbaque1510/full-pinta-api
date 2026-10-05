@@ -26,7 +26,7 @@ final readonly class NotificarResenaCreada
 
         $destinatarios = NegocioMiembro::where('negocio_id', $resena->local->negocio_id)
             ->vigente()
-            ->whereIn('rol', ['propietario', 'admin'])
+            ->whereIn('rol_personal', ['propietario', 'admin'])
             ->where(fn ($q) => $q->whereNull('local_id')->orWhere('local_id', $resena->local_id))
             ->with('usuario')
             ->get();

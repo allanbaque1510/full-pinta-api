@@ -34,6 +34,9 @@ class DatabaseSeeder extends Seeder
             PlanSeeder::class,
             NotificacionCategoriaSeeder::class,
             FinalidadConsentimientoSeeder::class,
+            RolSeeder::class,
+            PermisoSeeder::class,
+            RolPermisoSeeder::class,
         ]);
     }
 }

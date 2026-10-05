@@ -13,11 +13,7 @@ class LocalAmenidadController extends Controller
 {
     public function index(Local $local): JsonResponse
     {
-        return $this->ejecutar(function () use ($local) {
-            $this->authorize('ver', $local);
-
-            return AmenidadResource::collection($local->amenidades()->with('categoria')->get());
-        });
+        return $this->ejecutar(fn () => AmenidadResource::collection($local->amenidades()->with('categoria')->get()));
     }
 
     public function update(SincronizarAmenidadesRequest $request, Local $local, AmenidadService $amenidades): JsonResponse

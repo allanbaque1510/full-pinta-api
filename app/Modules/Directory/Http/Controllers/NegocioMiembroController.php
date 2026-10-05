@@ -19,11 +19,7 @@ class NegocioMiembroController extends Controller
 {
     public function index(Negocio $negocio, NegocioMiembroService $miembros): JsonResponse
     {
-        return $this->ejecutar(function () use ($negocio, $miembros) {
-            $this->authorize('gestionarMiembros', $negocio);
-
-            return NegocioMiembroResource::collection($miembros->listar($negocio));
-        });
+        return $this->ejecutar(fn () => NegocioMiembroResource::collection($miembros->listar($negocio)));
     }
 
     public function store(AgregarNegocioMiembroRequest $request, Negocio $negocio, NegocioMiembroService $miembros): JsonResponse
@@ -38,11 +34,6 @@ class NegocioMiembroController extends Controller
 
     public function terminar(NegocioMiembro $miembro, NegocioMiembroService $miembros): JsonResponse
     {
-        return $this->ejecutar(function () use ($miembro, $miembros) {
-            $miembro->loadMissing('negocio');
-            $this->authorize('gestionarMiembros', $miembro->negocio);
-
-            return NegocioMiembroResource::make($miembros->terminar($miembro));
-        });
+        return $this->ejecutar(fn () => NegocioMiembroResource::make($miembros->terminar($miembro)));
     }
 }

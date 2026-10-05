@@ -23,7 +23,7 @@ class SuscripcionController extends Controller
     public function show(Negocio $negocio): JsonResponse
     {
         return $this->ejecutar(function () use ($negocio) {
-            $this->authorize('gestionarSuscripcion', $negocio);
+            abort_unless($negocio->propietario_id === request()->user()->id, 403, 'No tienes permiso para esto.');
 
             $suscripcion = $negocio->suscripciones()->with('plan')->latest()->firstOrFail();
 
@@ -35,7 +35,7 @@ class SuscripcionController extends Controller
     {
         return $this->ejecutar(function () use ($suscripcion, $suscripciones) {
             $suscripcion->loadMissing('negocio');
-            $this->authorize('gestionarSuscripcion', $suscripcion->negocio);
+            abort_unless($suscripcion->negocio->propietario_id === request()->user()->id, 403, 'No tienes permiso para esto.');
 
             return SuscripcionResource::make($suscripciones->cancelar($suscripcion)->load('plan'));
         });

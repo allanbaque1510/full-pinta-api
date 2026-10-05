@@ -70,7 +70,7 @@ class ResolverContextoTest extends TestCase
         Asignacion::factory()->create([
             'local_id' => $local->id,
             'profesional_id' => $profesional->id,
-            'rol' => 'barbero',
+            'rol_personal' => 'barbero',
         ]);
 
         $token = $usuario->createToken('t')->plainTextToken;

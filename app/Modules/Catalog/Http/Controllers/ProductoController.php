@@ -15,11 +15,7 @@ class ProductoController extends Controller
 {
     public function index(Local $local, ProductoService $productos): JsonResponse
     {
-        return $this->ejecutar(function () use ($local, $productos) {
-            $this->authorize('ver', $local);
-
-            return ProductoResource::collection($productos->listar($local));
-        });
+        return $this->ejecutar(fn () => ProductoResource::collection($productos->listar($local)));
     }
 
     public function store(CrearProductoRequest $request, Local $local, ProductoService $productos): JsonResponse
@@ -35,8 +31,6 @@ class ProductoController extends Controller
     public function destroy(Producto $producto, ProductoService $productos): JsonResponse
     {
         return $this->ejecutar(function () use ($producto, $productos) {
-            $this->authorize('gestionarCatalogo', $producto->local);
-
             $productos->desactivar($producto);
 
             return response()->json(status: 204);

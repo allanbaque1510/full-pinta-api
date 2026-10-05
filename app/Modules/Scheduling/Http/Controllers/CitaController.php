@@ -23,6 +23,7 @@ use App\Modules\Scheduling\Http\Requests\MarcarNoShowRequest;
 use App\Modules\Scheduling\Http\Requests\ReagendarCitaRequest;
 use App\Modules\Scheduling\Http\Requests\RegistrarWalkInRequest;
 use App\Modules\Scheduling\Http\Resources\CitaResource;
+use App\Support\Auth\ContextoAcceso;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -31,8 +32,6 @@ class CitaController extends Controller
     public function index(Request $request, Local $local): JsonResponse
     {
         return $this->ejecutar(function () use ($request, $local) {
-            $this->authorize('ver', $local);
-
             $citas = $local->citas()
                 ->with(['items', 'productos', 'cliente'])
                 ->when($request->query('fecha'), fn ($q, $fecha) => $q->whereDate('inicio', $fecha))
@@ -86,7 +85,14 @@ class CitaController extends Controller
     public function show(Cita $cita): JsonResponse
     {
         return $this->ejecutar(function () use ($cita) {
-            $this->authorize('ver', $cita);
+            $cita->loadMissing('local');
+            $usuario = request()->user();
+
+            $autorizado = $cita->cliente_id === $usuario->id
+                || $usuario->profesional?->id === $cita->profesional_id
+                || (new ContextoAcceso($usuario))->tienePermiso($cita->local, 'citas.show');
+
+            abort_unless($autorizado, 403, 'No tienes permiso para esto.');
 
             return CitaResource::make($cita->load(['items', 'productos', 'cliente']));
         });

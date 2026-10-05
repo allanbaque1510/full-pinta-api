@@ -2,14 +2,14 @@
 
 namespace App\Modules\Reviews\Http\Requests;
 
-use App\Models\Resena;
 use Illuminate\Foundation\Http\FormRequest;
 
 class CrearResenaRequest extends FormRequest
 {
+    /** Propiedad puntual: solo el cliente dueño de la cita puede reseñarla — nunca el staff (§3.2). */
     public function authorize(): bool
     {
-        return $this->user()->can('crear', [Resena::class, $this->route('cita')]);
+        return $this->route('cita')->cliente_id === $this->user()->id;
     }
 
     public function rules(): array

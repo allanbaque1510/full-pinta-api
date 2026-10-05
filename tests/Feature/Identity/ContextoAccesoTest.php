@@ -11,9 +11,10 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
- * La matriz de permisos del §3.2, aplicada. El caso que existe para probar es
- * el de recepción: agenda y cobra, pero no ve comisiones de nadie — es
- * literalmente el motivo por el que ese rol existe.
+ * La matriz de permisos del §3.2, aplicada vía `ContextoAcceso::tienePermiso()`
+ * (sin Policy ni Gate — ver `App\Http\Middleware\VerificarPermiso`). El caso
+ * que existe para probar es el de recepción: agenda y cobra, pero no ve
+ * comisiones de nadie — es literalmente el motivo por el que ese rol existe.
  */
 class ContextoAccesoTest extends TestCase
 {
@@ -34,7 +35,7 @@ class ContextoAccesoTest extends TestCase
             'usuario_id' => $usuario->id,
             'negocio_id' => $local->negocio_id,
             'local_id' => null,
-            'rol' => $rol,
+            'rol_personal' => $rol,
         ]);
 
         return $usuario;
@@ -53,11 +54,11 @@ class ContextoAccesoTest extends TestCase
         $acceso = new ContextoAcceso($usuario);
 
         $this->assertSame('propietario', $acceso->rolEnLocal($local));
-        $this->assertTrue($acceso->puedeVerAgendaCompleta($local));
-        $this->assertTrue($acceso->puedeVerComisionesDeTodos($local));
-        $this->assertTrue($acceso->puedeEditarCatalogoYAsignaciones($local));
-        $this->assertTrue($acceso->puedeResponderResenas($local));
-        $this->assertTrue($acceso->puedeGestionarSuscripcion($local));
+        $this->assertTrue($acceso->tienePermiso($local, 'locales.clientes.index'));
+        $this->assertTrue($acceso->tienePermiso($local, 'locales.liquidaciones.index'));
+        $this->assertTrue($acceso->tienePermiso($local, 'locales.update'));
+        $this->assertTrue($acceso->tienePermiso($local, 'locales.servicios.store'));
+        $this->assertTrue($acceso->puedeGestionarSuscripcion($local->negocio));
     }
 
     public function test_admin_puede_todo_menos_gestionar_la_suscripcion(): void
@@ -67,11 +68,11 @@ class ContextoAccesoTest extends TestCase
 
         $acceso = new ContextoAcceso($usuario);
 
-        $this->assertTrue($acceso->puedeVerAgendaCompleta($local));
-        $this->assertTrue($acceso->puedeVerComisionesDeTodos($local));
-        $this->assertTrue($acceso->puedeEditarCatalogoYAsignaciones($local));
-        $this->assertTrue($acceso->puedeResponderResenas($local));
-        $this->assertFalse($acceso->puedeGestionarSuscripcion($local));
+        $this->assertTrue($acceso->tienePermiso($local, 'locales.clientes.index'));
+        $this->assertTrue($acceso->tienePermiso($local, 'locales.liquidaciones.index'));
+        $this->assertTrue($acceso->tienePermiso($local, 'locales.update'));
+        $this->assertTrue($acceso->tienePermiso($local, 'locales.servicios.store'));
+        $this->assertFalse($acceso->puedeGestionarSuscripcion($local->negocio));
     }
 
     /**
@@ -85,11 +86,11 @@ class ContextoAccesoTest extends TestCase
 
         $acceso = new ContextoAcceso($usuario);
 
-        $this->assertTrue($acceso->puedeVerAgendaCompleta($local));
-        $this->assertFalse($acceso->puedeVerComisionesDeTodos($local));
-        $this->assertFalse($acceso->puedeEditarCatalogoYAsignaciones($local));
-        $this->assertFalse($acceso->puedeResponderResenas($local));
-        $this->assertFalse($acceso->puedeGestionarSuscripcion($local));
+        $this->assertTrue($acceso->tienePermiso($local, 'locales.clientes.index'));
+        $this->assertFalse($acceso->tienePermiso($local, 'locales.liquidaciones.index'));
+        $this->assertFalse($acceso->tienePermiso($local, 'locales.update'));
+        $this->assertFalse($acceso->tienePermiso($local, 'locales.servicios.store'));
+        $this->assertFalse($acceso->puedeGestionarSuscripcion($local->negocio));
     }
 
     public function test_un_desconocido_sin_membresia_no_puede_nada(): void
@@ -100,8 +101,8 @@ class ContextoAccesoTest extends TestCase
         $acceso = new ContextoAcceso($usuario);
 
         $this->assertNull($acceso->rolEnLocal($local));
-        $this->assertFalse($acceso->puedeVerAgendaCompleta($local));
-        $this->assertFalse($acceso->puedeVerComisionesDeTodos($local));
+        $this->assertFalse($acceso->tienePermiso($local, 'locales.clientes.index'));
+        $this->assertFalse($acceso->tienePermiso($local, 'locales.liquidaciones.index'));
     }
 
     public function test_una_membresia_de_otro_negocio_no_da_acceso_a_este_local(): void
@@ -130,7 +131,7 @@ class ContextoAccesoTest extends TestCase
             'usuario_id' => $usuario->id,
             'negocio_id' => $negocio->id,
             'local_id' => $localA->id,
-            'rol' => 'recepcion',
+            'rol_personal' => 'recepcion',
         ]);
 
         $acceso = new ContextoAcceso($usuario);

@@ -944,7 +944,7 @@ Crea el *hold* (§5.4): `reservada` con `expira_at = +10 min` — salvo que el c
 
 ### `POST /locales/{local}/citas/walk-in` 🔒 · `Idempotency-Key` obligatorio
 
-Solo propietario/admin/recepción. Un cliente que llega sin cita: ocupa slot igual que uno de la app (mismo constraint `EXCLUDE`), pero nace **`confirmada`** directo y `canal: "local"` — no hay hold que confirmar, el cliente ya está ahí.
+Profesional, recepción, propietario o admin (§3.2, "crear walk-in / registrar cobro"). Un cliente que llega sin cita: ocupa slot igual que uno de la app (mismo constraint `EXCLUDE`), pero nace **`confirmada`** directo y `canal: "local"` — no hay hold que confirmar, el cliente ya está ahí.
 
 **Body**: igual que crear, más `cliente_id` (si ya es cliente) **o** `nombre`+`telefono` (crea un usuario mínimo sin contraseña si el teléfono no existe todavía — no es el flujo completo de registro, solo lo necesario para que la cita tenga dueño).
 
@@ -1166,7 +1166,7 @@ Reemplaza las categorías enviadas (las que no se mandan quedan como estaban —
 
 **Fuera de la v1 como función cobrada** (§15.2, §9.7: "todo gratis los primeros ~6 meses") — pero el código ya existe y funciona de punta a punta. No hay pasarela de pago conectada (§10.1: "en la v1 nada de dinero pasa por la plataforma") ni proveedor de facturación electrónica del SRI — `POST /cobros/{cobro}/marcar-pagado` es un registro administrativo (el cobro real ocurre por fuera, transferencia o el medio que sea), y `comprobante_sri` se emite contra un puerto provisional, igual que el push/WhatsApp de la sección anterior.
 
-Todas las rutas de esta sección son 🔒, y solo para quien administra dinero: `NegocioPolicy::gestionarSuscripcion` (el dueño legal del negocio, `negocio.propietario_id` — ni siquiera `admin`) para suscripción/cobros, `LiquidacionPolicy` (propietario/admin, nunca recepción) para liquidaciones.
+Todas las rutas de esta sección son 🔒, y solo para quien administra dinero: suscripción/cobros exigen ser el dueño legal del negocio (`negocio.propietario_id` — ni siquiera `admin`, propiedad puntual, no pasa por `rol_permiso`); liquidaciones exigen el permiso de rol correspondiente (propietario/admin, nunca recepción — §3.2).
 
 ### `POST /negocios/{negocio}/suscripcion`
 

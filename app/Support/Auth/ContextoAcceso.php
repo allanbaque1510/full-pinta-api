@@ -2,34 +2,60 @@
 
 namespace App\Support\Auth;
 
+use App\Models\Asignacion;
 use App\Models\Local;
 use App\Models\Negocio;
+use App\Models\Profesional;
+use App\Models\Rol;
 use App\Models\Usuario;
 
 /**
- * Resuelve el rol de un usuario en un local concreto y aplica la matriz de
- * permisos del §3.2. Las Policies de cada módulo (Fase 3 en adelante) delegan
- * aquí en vez de repetir la lógica de "qué rol tiene este usuario en este
- * local" en cada una.
+ * Resuelve el rol de acceso de un usuario en un local/negocio concreto y
+ * consulta sus permisos (`rol`/`permiso`/`rol_permiso`, §3.2). El middleware
+ * `permiso` (`App\Http\Middleware\VerificarPermiso`) delega aquí para cada
+ * ruta protegida por rol, en vez de repetir "qué rol tiene este usuario en
+ * este local" o "qué puede hacer ese rol" en cada una. No hay Policies ni
+ * Gates en este proyecto para esto — ver el middleware.
  *
  * ## Supuesto documentado — el rol `admin`
  *
  * La matriz del §3.2 solo tiene cuatro columnas: Cliente, Profesional,
- * Recepción, Propietario. El campo `negocio_miembro.rol` (§4.4) admite un
- * quinto valor, `admin`, que la matriz no cubre. Se asume aquí que `admin`
- * tiene los mismos permisos que `propietario` **excepto** la gestión de la
- * suscripción y facturación, que se reserva al dueño legal del negocio
- * (`negocio.propietario_id`). Confirmar con producto si esto no es correcto —
- * no es una regla que la especificación fije, es una lectura razonable de un
- * vacío del documento.
+ * Recepción, Propietario. El campo `negocio_miembro.rol_personal` (§4.4)
+ * admite un quinto valor, `admin`, que la matriz no cubre. Se asume aquí (y
+ * en el seeder `RolPermisoSeeder`) que `admin` tiene los mismos permisos que
+ * `propietario` **excepto** la gestión de la suscripción y facturación, que
+ * se reserva al dueño legal del negocio (`negocio.propietario_id`). Confirmar
+ * con producto si esto no es correcto — no es una regla que la especificación
+ * fije, es una lectura razonable de un vacío del documento.
  *
- * ## Lo que este servicio NO resuelve
+ * ## De dónde sale cada permiso — `rol_permiso` (revisión de base de datos,
+ * 2026-10-05)
  *
- * Las filas de la matriz que dependen de una relación de propiedad puntual —
- * "ver agenda propia", "bloquear su horario", "ver sus propias comisiones" —
- * no son "¿qué rol tiene X?" sino "¿es X el dueño de ESTE registro?". Esas se
- * resuelven comparando `profesional_id` directamente en la Policy del recurso
- * (Fase 4 en adelante), no aquí.
+ * `tienePermiso()`/`tienePermisoEnNegocio()` consultan la tabla `permiso`,
+ * vía `rol_permiso`, en vez de un `in_array([...])` escrito a mano. Cambiar
+ * quién puede ver comisiones o responder reseñas es ahora un ajuste de datos
+ * (`RolPermisoSeeder`), no un despliegue.
+ *
+ * A diferencia de `rolEnLocal()`/`rolEnNegocio()` (que SOLO resuelven
+ * membresía en `negocio_miembro`: propietario/admin/recepción/`null`),
+ * `tienePermiso()` resuelve el rol de acceso COMPLETO de la matriz —
+ * incluyendo `profesional` (asignación vigente en ESE local concreto) y
+ * `cliente` (default si no es ninguna de las anteriores) — porque la tabla
+ * `rol_permiso` sí declara permisos para esos dos roles.
+ *
+ * ## Lo que esta tabla NO reemplaza
+ *
+ * La pregunta "¿es este registro específicamente SUYO?" (es esta SU cita, es
+ * este profesional él mismo) no es "qué rol tiene X" — sigue resuelta por
+ * comparación directa de id, en el controller de cada recurso, nunca aquí.
+ * Un profesional con permiso de agenda en general no implica que pueda ver
+ * CUALQUIER cita de CUALQUIER profesional — ambas preguntas se combinan en
+ * el controller (`abort_unless($esSuyo || $contexto->tienePermiso(...))`),
+ * cada una resuelta por la herramienta correcta.
+ *
+ * Tampoco la gestión de suscripción/facturación: es del dueño legal
+ * (`negocio.propietario_id`), ni siquiera `admin` — ver
+ * `puedeGestionarSuscripcion()`.
  */
 final readonly class ContextoAcceso
 {
@@ -38,6 +64,8 @@ final readonly class ContextoAcceso
     /**
      * `null` si el usuario no tiene membresía vigente en el negocio de ese
      * local (ni general, con `local_id IS NULL`, ni específica a ese local).
+     * Solo mira `negocio_miembro` — no resuelve `profesional`/`cliente`, ver
+     * `tienePermiso()` para eso.
      */
     public function rolEnLocal(Local $local): ?string
     {
@@ -62,55 +90,89 @@ final readonly class ContextoAcceso
                 }
             })
             ->orderByRaw('local_id IS NULL') // específico del local antes que el general
-            ->value('rol');
-    }
-
-    public function esPropietarioOAdmin(Local $local): bool
-    {
-        return in_array($this->rolEnLocal($local), ['propietario', 'admin'], true);
-    }
-
-    /** "Editar precios, servicios, asignaciones" a nivel de negocio — usado para crear el primer local. */
-    public function puedeGestionarNegocio(Negocio $negocio): bool
-    {
-        return in_array($this->rolEnNegocio($negocio->id), ['propietario', 'admin'], true);
-    }
-
-    /** "Ver agenda completa del local" — propietario, admin y recepción (§3.2). */
-    public function puedeVerAgendaCompleta(Local $local): bool
-    {
-        return in_array($this->rolEnLocal($local), ['propietario', 'admin', 'recepcion'], true);
+            ->value('rol_personal');
     }
 
     /**
-     * "Ver comisiones de todos" — recepción está explícitamente excluida
-     * (✗ marcado, no solo "—", en la tabla del §3.2). Es la razón de ser del
-     * rol: agenda y cobra, pero no ve el negocio de comisiones.
+     * El rol de acceso completo de la matriz (§3.2) para este local: la
+     * membresía si existe, si no "¿tiene asignación vigente como profesional
+     * EN ESTE LOCAL?", si no `cliente` por default — todo usuario autenticado
+     * es, como mínimo, cliente.
      */
-    public function puedeVerComisionesDeTodos(Local $local): bool
+    private function rolDeAccesoEnLocal(Local $local): string
     {
-        return in_array($this->rolEnLocal($local), ['propietario', 'admin'], true);
+        $rolMembresia = $this->rolEnLocal($local);
+
+        if ($rolMembresia !== null) {
+            return $rolMembresia;
+        }
+
+        return $this->esProfesionalVigenteEnLocal($local) ? 'profesional' : 'cliente';
     }
 
-    /** "Editar precios, servicios, asignaciones" — supuesto de `admin` arriba. */
-    public function puedeEditarCatalogoYAsignaciones(Local $local): bool
+    private function esProfesionalVigenteEnLocal(Local $local): bool
     {
-        return in_array($this->rolEnLocal($local), ['propietario', 'admin'], true);
+        $profesional = $this->usuario->profesional;
+
+        if ($profesional === null) {
+            return false;
+        }
+
+        return Asignacion::where('local_id', $local->id)
+            ->where('profesional_id', $profesional->id)
+            ->vigente()
+            ->exists();
     }
 
-    /** "Responder reseñas" — supuesto de `admin` arriba. */
-    public function puedeResponderResenas(Local $local): bool
+    /** ¿Tiene el rol de acceso de este usuario en este local el permiso `$permisoCodigo` (`rol_permiso`, §3.2)? */
+    public function tienePermiso(Local $local, string $permisoCodigo): bool
     {
-        return in_array($this->rolEnLocal($local), ['propietario', 'admin'], true);
+        return $this->tienePermisoParaRol($this->rolDeAccesoEnLocal($local), $permisoCodigo);
+    }
+
+    /**
+     * Igual que `tienePermiso`, pero a nivel del negocio completo (sin un
+     * local concreto todavía) — solo resuelve membresía: ningún permiso de
+     * `cliente`/`profesional` aplica a nivel de negocio en la matriz actual.
+     */
+    public function tienePermisoEnNegocio(Negocio $negocio, string $permisoCodigo): bool
+    {
+        return $this->tienePermisoParaRol($this->rolEnNegocio($negocio->id), $permisoCodigo);
+    }
+
+    private function tienePermisoParaRol(?string $rolCodigo, string $permisoCodigo): bool
+    {
+        if ($rolCodigo === null) {
+            return false;
+        }
+
+        return Rol::query()
+            ->where('codigo', $rolCodigo)
+            ->where('activo', true)
+            ->whereHas('permisos', fn ($q) => $q->where('codigo', $permisoCodigo)->where('activo', true))
+            ->exists();
+    }
+
+    /**
+     * Igual que `tienePermiso`, pero para un `Profesional` que no cuelga de
+     * un solo local (§4.6: puede trabajar en varios a la vez) — concede si
+     * el usuario tiene el permiso en AL MENOS UNO de los locales donde el
+     * profesional tiene asignación vigente.
+     */
+    public function tienePermisoSobreProfesional(Profesional $profesional, string $permisoCodigo): bool
+    {
+        return $profesional->asignaciones()->vigente()->with('local')->get()
+            ->contains(fn ($asignacion) => $this->tienePermiso($asignacion->local, $permisoCodigo));
     }
 
     /**
      * "Suscripción y facturación" — únicamente el dueño legal
      * (`negocio.propietario_id`), ni siquiera `admin`. Es dinero y
-     * responsabilidad fiscal, no gestión operativa del día a día.
+     * responsabilidad fiscal, no gestión operativa del día a día. No pasa
+     * por `rol_permiso`: no es un permiso de rol, es propiedad puntual.
      */
-    public function puedeGestionarSuscripcion(Local $local): bool
+    public function puedeGestionarSuscripcion(Negocio $negocio): bool
     {
-        return $local->negocio->propietario_id === $this->usuario->id;
+        return $negocio->propietario_id === $this->usuario->id;
     }
 }
